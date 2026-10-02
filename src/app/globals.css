@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #f8f0b8;
+  --surface: #ffffff;
+  --surface-warm: #f8e8b8;
+  --ink: #1a1a1a;
+  --muted: #6b655c;
+  --line: #e6d48a;
+  --accent: #fcc834;
+  --accent-foreground: #1a1a1a;
+  --inverse: #2c2c2c;
+  --inverse-foreground: #ffffff;
+  --radius-card: 1.5rem;
+  --shadow-card: 0 8px 24px rgba(48, 40, 16, 0.06);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-warm: var(--surface-warm);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-inverse: var(--inverse);
+  --color-inverse-foreground: var(--inverse-foreground);
+  --font-sans: var(--font-google-sans), "Google Sans", sans-serif;
+  --radius-card: var(--radius-card);
+  --shadow-card: var(--shadow-card);
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
