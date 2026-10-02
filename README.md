@@ -40,4 +40,4 @@ The browser calls this app at `/api/*`. Next.js forwards that path to `API_URL`.
 
 ## Deploy
 
-Connect this GitHub repository to Vercel and set `API_URL` in the project environment. Vercel detects Next.js, so no extra framework config is required.
+Connect this GitHub repository to Vercel and set `API_URL` in the project environment. `vercel.json` sets the framework to Next.js so Vercel does not look for a static `public` output directory.

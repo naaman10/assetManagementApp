@@ -7,6 +7,7 @@ const googleSans = Google_Sans({
   weight: ["400", "500", "600", "700"],
   variable: "--font-google-sans",
   display: "swap",
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
