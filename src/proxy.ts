@@ -22,8 +22,11 @@ export async function proxy(request: NextRequest) {
   }
 
   const signIn = new URL("/sign-in", request.url);
+  const authError = request.nextUrl.searchParams.get("auth_error");
 
-  if (pathname !== "/") {
+  if (pathname === "/" && authError) {
+    signIn.searchParams.set("auth_error", authError);
+  } else if (pathname !== "/") {
     signIn.searchParams.set("return_to", `${pathname}${search}`);
   }
 

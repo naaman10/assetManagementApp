@@ -16,15 +16,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Auth
 
-Signed-out visits are redirected to `/sign-in`. The Google button sends the browser to `/api/auth/google`, which this app forwards to the API.
+Signed-out visits are redirected to `/sign-in`. The Google link is a full-page navigation to `/api/auth/google`. The API redirects to Google, sets an httpOnly `oauth_state` cookie on this host, and handles `GET /auth/google/callback` through the same proxy. This app has no callback page.
 
-The API owns the OAuth callback and the session cookie. This app treats a person as signed in when `GET {API_URL}/auth/session` returns:
+After success the API sends the browser to `/`. After failure it sends the browser to `/?auth_error=access_denied`, `invalid_state`, or `auth_failed`, which this app forwards to `/sign-in` with the same `auth_error`. The API ignores `return_to`. This app remembers a safe in-app path in `sessionStorage` and visits it once after sign-in.
+
+This app treats a person as signed in when `GET {API_URL}/auth/me`, with the browser’s `Cookie` header, returns 200:
 
 ```json
-{ "user": { "id": "…", "email": "…", "name": "…" } }
+{ "user": { "id": "…", "email": "…", "name": "…", "picture": null } }
 ```
 
-The request includes the cookies the browser sent to this app. Any other response leaves the person on the sign-in page.
+A missing session is `401 { "error": "Unauthorized" }`. Any non-200 response leaves the person signed out.
+
+Sign-out is a browser `POST /api/auth/logout`. The proxy forwards it to the API, and the API’s `Set-Cookie` clears the httpOnly session cookie for this site. A server-side fetch of the Render host would not clear that cookie. The browser then goes to `/sign-in`.
 
 ## Environment
 

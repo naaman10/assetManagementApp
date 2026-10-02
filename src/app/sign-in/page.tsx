@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { GoogleSignInLink } from "@/components/google-sign-in-link";
 import { Logo } from "@/components/logo";
-import { googleSignInPath, safeReturnPath } from "@/lib/auth";
+import { safeReturnPath } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Sign in · Asset Management",
@@ -9,12 +10,19 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ return_to?: string | string[] }>;
+  searchParams: Promise<{
+    return_to?: string | string[];
+    auth_error?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const requested =
     typeof params.return_to === "string" ? params.return_to : null;
   const returnTo = safeReturnPath(requested);
+  const authError =
+    typeof params.auth_error === "string"
+      ? authErrorMessage(params.auth_error)
+      : null;
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
@@ -36,17 +44,32 @@ export default async function SignInPage({
           <p className="mt-3 text-[15px] leading-6 text-muted">
             Continue with the Google account your organisation uses.
           </p>
-          <a
-            href={googleSignInPath(returnTo)}
-            className="mt-8 flex h-12 w-full items-center justify-center gap-3 rounded-full bg-accent text-sm font-medium text-accent-foreground"
-          >
+          {authError ? (
+            <p className="mt-4 text-sm leading-6 text-ink" role="alert">
+              {authError}
+            </p>
+          ) : null}
+          <GoogleSignInLink returnTo={returnTo}>
             <GoogleMark />
             Continue with Google
-          </a>
+          </GoogleSignInLink>
         </div>
       </section>
     </div>
   );
+}
+
+function authErrorMessage(code: string): string | null {
+  switch (code) {
+    case "access_denied":
+      return "Google sign-in was cancelled or this account is not allowed to use the app.";
+    case "invalid_state":
+      return "Sign-in expired. Try again from this page.";
+    case "auth_failed":
+      return "Google sign-in could not be completed.";
+    default:
+      return null;
+  }
 }
 
 function GoogleMark() {
