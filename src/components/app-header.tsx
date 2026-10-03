@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { useSession } from "@/components/session-provider";
 import {
+  CLIENTS_VIEW,
   hasAnyPermission,
   hasPermission,
   ROLE_AREA_PERMISSIONS,
@@ -21,6 +22,7 @@ import {
 export function AppHeader() {
   const pathname = usePathname();
   const { user } = useSession();
+  const showClients = hasPermission(user, CLIENTS_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
@@ -30,6 +32,19 @@ export function AppHeader() {
         <Logo />
       </Link>
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        {showClients ? (
+          <Link
+            href="/clients"
+            aria-current={pathname.startsWith("/clients") ? "page" : undefined}
+            className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${
+              pathname.startsWith("/clients")
+                ? "bg-inverse text-inverse-foreground"
+                : "text-ink"
+            }`}
+          >
+            Clients
+          </Link>
+        ) : null}
         {showUsers || showRoles ? (
           <UserManagementMenu
             pathname={pathname}

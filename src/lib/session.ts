@@ -25,6 +25,10 @@ export const ROLES_CREATE = "roles:create";
 export const ROLES_EDIT = "roles:edit";
 export const ROLES_DELETE = "roles:delete";
 export const PERMISSIONS_VIEW = "permissions:view";
+export const CLIENTS_VIEW = "clients:view";
+export const CLIENTS_CREATE = "clients:create";
+export const CLIENTS_EDIT = "clients:edit";
+export const CLIENTS_DELETE = "clients:delete";
 export const ADMIN_ROLE = "admin";
 
 export const USER_AREA_PERMISSIONS = [

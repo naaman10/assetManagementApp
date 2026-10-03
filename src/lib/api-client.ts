@@ -26,7 +26,11 @@ export async function apiRequest(
     headers.set("Accept", "application/json");
   }
 
-  if (init?.body !== undefined && !headers.has("Content-Type")) {
+  if (
+    init?.body !== undefined &&
+    !(init.body instanceof FormData) &&
+    !headers.has("Content-Type")
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -135,23 +139,36 @@ function readFieldErrors(data: unknown): FieldErrors {
 
   const details = data.details;
 
-  if (!details || typeof details !== "object") {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
     return {};
   }
 
+  return flattenFieldErrors(details);
+}
+
+function flattenFieldErrors(
+  value: object,
+  prefix = "",
+): FieldErrors {
   const errors: FieldErrors = {};
 
-  for (const [key, value] of Object.entries(details)) {
-    if (!Array.isArray(value)) {
+  for (const [key, child] of Object.entries(value)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+
+    if (Array.isArray(child)) {
+      const messages = child.filter(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      );
+
+      if (messages.length > 0) {
+        errors[path] = messages;
+      }
+
       continue;
     }
 
-    const messages = value.filter(
-      (item): item is string => typeof item === "string" && item.length > 0,
-    );
-
-    if (messages.length > 0) {
-      errors[key] = messages;
+    if (child && typeof child === "object") {
+      Object.assign(errors, flattenFieldErrors(child, path));
     }
   }
 
