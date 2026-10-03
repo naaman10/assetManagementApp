@@ -3,6 +3,7 @@ export type SessionUser = {
   email: string;
   name: string | null;
   picture: string | null;
+  permissions: string[];
 };
 
 export type Session = {
@@ -18,7 +19,7 @@ function apiOrigin(): string | undefined {
 
 /**
  * Asks the Render API whether the incoming cookies belong to a signed-in user.
- * `GET {API_URL}/auth/me` returns 200 `{ user: { id, email, name, picture } }` when they do.
+ * `GET {API_URL}/auth/me` returns 200 `{ user: { id, email, name, picture, permissions } }` when they do.
  * Any other response, including 401, means signed out.
  */
 export async function getSession(
@@ -65,8 +66,14 @@ function parseSession(data: unknown): Session | null {
   const email = "email" in user ? user.email : undefined;
   const name = "name" in user ? user.name : null;
   const picture = "picture" in user ? user.picture : null;
+  const permissions = "permissions" in user ? user.permissions : [];
 
-  if (typeof id !== "string" || id.length === 0 || typeof email !== "string" || email.length === 0) {
+  if (
+    typeof id !== "string" ||
+    id.length === 0 ||
+    typeof email !== "string" ||
+    email.length === 0
+  ) {
     return null;
   }
 
@@ -76,6 +83,19 @@ function parseSession(data: unknown): Session | null {
       email,
       name: typeof name === "string" ? name : null,
       picture: typeof picture === "string" ? picture : null,
+      permissions: parsePermissions(permissions),
     },
   };
+}
+
+export function hasPermission(user: SessionUser, permission: string): boolean {
+  return user.permissions.includes(permission);
+}
+
+function parsePermissions(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
 }

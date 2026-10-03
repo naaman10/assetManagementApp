@@ -2,7 +2,7 @@
 
 import { AUTH_RETURN_PATH_KEY, safeReturnPath } from "@/lib/return-path";
 
-export function GoogleSignInLink({
+export function SignInLink({
   returnTo,
   children,
 }: {
@@ -11,7 +11,7 @@ export function GoogleSignInLink({
 }) {
   return (
     <a
-      href="/api/auth/google"
+      href="/api/auth/login"
       onClick={() => {
         try {
           sessionStorage.setItem(
@@ -22,7 +22,7 @@ export function GoogleSignInLink({
           // Sign-in still continues if storage is unavailable.
         }
       }}
-      className="mt-8 flex h-12 w-full items-center justify-center gap-3 rounded-full bg-accent text-sm font-medium text-accent-foreground"
+      className="mt-8 flex h-12 w-full items-center justify-center rounded-full bg-accent text-sm font-medium text-accent-foreground"
     >
       {children}
     </a>

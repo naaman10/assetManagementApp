@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cookies } from "next/headers";
+
 /**
  * Server-side client for the Render API.
  * Browser code should call same-origin `/api/*`. Next.js proxies those
@@ -28,9 +30,26 @@ export async function apiFetch(
     headers.set("Accept", "application/json");
   }
 
+  if (!headers.has("cookie")) {
+    const cookieHeader = await requestCookies();
+
+    if (cookieHeader) {
+      headers.set("cookie", cookieHeader);
+    }
+  }
+
   return fetch(`${getApiUrl()}${normalizedPath}`, {
     ...init,
     headers,
     cache: "no-store",
   });
+}
+
+async function requestCookies(): Promise<string | undefined> {
+  try {
+    const cookieHeader = (await cookies()).toString();
+    return cookieHeader || undefined;
+  } catch {
+    return undefined;
+  }
 }

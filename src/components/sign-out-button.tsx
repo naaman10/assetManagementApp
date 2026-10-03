@@ -2,14 +2,17 @@
 
 export function SignOutButton() {
   async function signOut() {
-    await fetch("/api/auth/logout", {
+    const response = await fetch("/api/auth/logout", {
       method: "POST",
       credentials: "include",
       cache: "no-store",
+      headers: { Accept: "application/json" },
     });
-    // A full load bypasses a cached signed-in redirect to this page.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.assign("/sign-in");
+    const logoutUrl = readLogoutUrl(await response.json().catch(() => null));
+
+    if (logoutUrl) {
+      window.location.assign(logoutUrl);
+    }
   }
 
   return (
@@ -23,4 +26,28 @@ export function SignOutButton() {
       Sign out
     </button>
   );
+}
+
+function readLogoutUrl(data: unknown): string | null {
+  if (!data || typeof data !== "object" || !("logoutUrl" in data)) {
+    return null;
+  }
+
+  const logoutUrl = data.logoutUrl;
+
+  if (typeof logoutUrl !== "string") {
+    return null;
+  }
+
+  try {
+    const url = new URL(logoutUrl);
+
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
