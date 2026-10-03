@@ -22,7 +22,7 @@ export function Logo() {
           />
         </svg>
       </span>
-      <span className="text-lg font-medium tracking-tight">Assets</span>
+      <span className="text-lg font-medium tracking-tight">JAM</span>
     </div>
   );
 }

@@ -30,7 +30,7 @@ export default async function SignInPage({
         <Logo />
         <div className="max-w-md">
           <h1 className="text-4xl font-medium tracking-tight">
-            Asset Management
+            Joe's Asset Management
           </h1>
           <p className="mt-4 text-lg leading-7 text-muted">
             A workspace for the equipment and property your organisation looks
