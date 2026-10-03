@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   FormBanner,
@@ -95,7 +96,16 @@ export function ClientForm({
 
   return (
     <section className="max-w-xl">
-      {creating ? <PageHeading title="Create client" /> : null}
+      <PageHeading
+        title={creating ? "Create client" : "Edit client"}
+        action={
+          client ? (
+            <Link href={`/clients/${client.id}`} className={secondaryButtonClassName}>
+              Back
+            </Link>
+          ) : null
+        }
+      />
       <form
         className="mt-8 grid gap-5"
         method="post"

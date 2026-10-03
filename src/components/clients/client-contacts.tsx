@@ -32,7 +32,7 @@ export function ClientContacts({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <section className="max-w-xl">
+    <section>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-medium tracking-tight">Contacts</h2>
         {canEdit && !adding ? (
@@ -150,10 +150,12 @@ function ContactSummary({
 
   return (
     <div className="grid gap-4">
-      <div>
-        <p className="font-medium">{contact.name}</p>
-        <p className="mt-1 text-sm text-muted">{contactDetails(contact)}</p>
-      </div>
+      <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        <DetailField label="Name" value={contact.name} />
+        <DetailField label="Role" value={contact.role} />
+        <DetailField label="Email" value={contact.email} />
+        <DetailField label="Telephone" value={contact.telephone} />
+      </dl>
       {error ? (
         <p className="text-sm leading-6 text-ink" role="alert">
           {error}
@@ -418,10 +420,11 @@ function emptyToNull(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function contactDetails(contact: Contact): string {
-  const parts = [contact.role, contact.email, contact.telephone].filter(
-    (part): part is string => Boolean(part),
+function DetailField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd className="mt-1 text-sm font-medium">{value || "—"}</dd>
+    </div>
   );
-
-  return parts.length > 0 ? parts.join(" · ") : "No role, email, or telephone";
 }

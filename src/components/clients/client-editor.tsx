@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientContacts } from "@/components/clients/client-contacts";
-import { ClientForm } from "@/components/clients/client-form";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
 import {
   ConfirmDelete,
   FormBanner,
-  PageHeading,
   secondaryButtonClassName,
 } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
@@ -105,17 +104,37 @@ export function ClientEditor({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid max-w-xl gap-12">
-      <section>
-        <PageHeading title={client.name} />
-        <div className="mt-8 flex flex-wrap items-center gap-5">
-          <ClientLogo
-            name={client.name}
-            logoUrl={client.logoUrl}
-            size="detail"
-            onReload={reloadLogo}
-          />
+    <div className="grid max-w-3xl gap-8">
+      <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-6">
+            <ClientLogo
+              name={client.name}
+              logoUrl={client.logoUrl}
+              size="detail"
+              onReload={reloadLogo}
+            />
+            <div className="min-w-0">
+              <p className="text-sm text-muted">Client</p>
+              <h1 className="mt-1 text-4xl font-medium tracking-tight">{client.name}</h1>
+              <p className="mt-2 text-sm text-muted">
+                {client.address.city}
+                {" · "}
+                {client.address.postcode}
+              </p>
+            </div>
+          </div>
           {canEdit ? (
+            <Link
+              href={`/clients/${client.id}/edit`}
+              className={secondaryButtonClassName}
+            >
+              Edit
+            </Link>
+          ) : null}
+        </div>
+        {canEdit ? (
+          <div className="mt-6 border-t border-line pt-6">
             <LogoUpload
               clientId={client.id}
               onSaved={setSaved}
@@ -123,13 +142,19 @@ export function ClientEditor({ id }: { id: string }) {
                 router.replace("/clients");
               }}
             />
-          ) : null}
-        </div>
-        {canEdit ? (
-          <ClientForm client={client} onSaved={setSaved} />
-        ) : (
-          <AddressSummary client={client} />
-        )}
+          </div>
+        ) : null}
+      </section>
+      <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
+        <h2 className="text-2xl font-medium tracking-tight">Address</h2>
+        <dl className="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          <DetailField label="Address line 1" value={client.address.line1} />
+          <DetailField label="Address line 2" value={client.address.line2} />
+          <DetailField label="City" value={client.address.city} />
+          <DetailField label="County" value={client.address.county} />
+          <DetailField label="Postcode" value={client.address.postcode} />
+          <DetailField label="Country" value={client.address.country} />
+        </dl>
       </section>
       <ClientContacts
         client={client}
@@ -160,26 +185,12 @@ export function ClientEditor({ id }: { id: string }) {
   );
 }
 
-function AddressSummary({ client }: { client: Client }) {
-  const { address } = client;
-  const lines = [
-    address.line1,
-    address.line2,
-    address.city,
-    address.county,
-    address.postcode,
-    address.country,
-  ].filter((line): line is string => Boolean(line));
-
+function DetailField({ label, value }: { label: string; value: string | null }) {
   return (
-    <dl className="mt-8 rounded-card bg-surface p-6 shadow-card">
-      <dt className="text-sm text-muted">Address</dt>
-      <dd className="mt-2 grid text-sm leading-6 font-medium">
-        {lines.map((line, index) => (
-          <span key={`${index}-${line}`}>{line}</span>
-        ))}
-      </dd>
-    </dl>
+    <div>
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd className="mt-1 text-sm font-medium">{value || "—"}</dd>
+    </div>
   );
 }
 
