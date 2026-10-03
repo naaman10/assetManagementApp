@@ -12,13 +12,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-`API_URL` is optional for viewing the sign-in page. Signing in needs it, because Auth0 login is handled by the API. When you set it, restart the dev server so the proxy picks it up.
+`API_URL` is optional for viewing the sign-in page. Signing in needs it, because the API checks the email and password. When you set it, restart the dev server so the proxy picks it up.
 
 ## Auth
 
-Signed-out visits are redirected to `/sign-in`. There is no sign-up. The sign-in link is a full-page navigation to `/api/auth/login`. The API redirects to Auth0, sets an httpOnly state cookie on this host, and handles `GET /auth/callback` through the same `/api/*` proxy. This app has no callback page and does not call Auth0 from the browser.
+Signed-out visits are redirected to `/sign-in`. There is no sign-up, and the browser never goes to Auth0. The sign-in form posts JSON `{ "email", "password" }` to `/api/auth/login` with credentials included, so the session cookie is stored on this site. The password is not put in the query string or in local storage.
 
-After success the API sends the browser to `/`. After failure it sends the browser to `/?auth_error=access_denied`, `invalid_state`, or `auth_failed`, which this app forwards to `/sign-in` with the same `auth_error`. The API ignores `return_to`. This app remembers a safe in-app path in `sessionStorage` and visits it once after sign-in.
+`200` returns the signed-in user. `401` is `{ "error": "Invalid email or password." }`, which the form shows. `400` means the body was invalid. `502` means sign-in is unavailable. After success the browser goes to a safe in-app path from `return_to`, or `/`.
 
 This app treats a person as signed in when `GET {API_URL}/auth/me`, with the browser’s `Cookie` header, returns 200:
 
@@ -29,14 +29,15 @@ This app treats a person as signed in when `GET {API_URL}/auth/me`, with the bro
     "email": "…",
     "name": "…",
     "picture": null,
-    "permissions": ["permission:name"]
+    "roles": [{ "id": "…", "name": "…" }],
+    "permissions": ["users:manage"]
   }
 }
 ```
 
-`picture` may be null. `permissions` is the Auth0 permission list. UI that depends on a permission calls `hasPermission` with that string and stays hidden when it is absent. A missing session is `401 { "error": "Unauthorized" }`. Any non-200 response leaves the person signed out.
+`picture` may be null. `roles` is `{ id, name }[]`. `permissions` is a string array. UI that depends on a permission calls `hasPermission` with that string and stays hidden when it is absent. A missing session is `401`. Any non-200 response leaves the person signed out.
 
-Sign-out is a browser `POST /api/auth/logout`. The proxy forwards it to the API, and the API’s `Set-Cookie` clears the httpOnly session cookie for this site. The JSON body includes `logoutUrl`. The browser then navigates to that URL so Auth0 ends its own session and returns to this site. Clearing the local cookie alone is not enough. Auth0 tokens stay on the API.
+Sign-out is a browser `POST /api/auth/logout`. The response is `{ "ok": true }`, and the API’s `Set-Cookie` clears the httpOnly session cookie for this site. The browser then returns to `/sign-in`. Auth0 credentials stay on the API.
 
 ## Environment
 

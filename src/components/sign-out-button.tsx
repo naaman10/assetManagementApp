@@ -8,11 +8,14 @@ export function SignOutButton() {
       cache: "no-store",
       headers: { Accept: "application/json" },
     });
-    const logoutUrl = readLogoutUrl(await response.json().catch(() => null));
 
-    if (logoutUrl) {
-      window.location.assign(logoutUrl);
+    if (!response.ok) {
+      return;
     }
+
+    // A client navigation can reuse the signed-in page after the cookie is cleared.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign("/sign-in");
   }
 
   return (
@@ -26,28 +29,4 @@ export function SignOutButton() {
       Sign out
     </button>
   );
-}
-
-function readLogoutUrl(data: unknown): string | null {
-  if (!data || typeof data !== "object" || !("logoutUrl" in data)) {
-    return null;
-  }
-
-  const logoutUrl = data.logoutUrl;
-
-  if (typeof logoutUrl !== "string") {
-    return null;
-  }
-
-  try {
-    const url = new URL(logoutUrl);
-
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return null;
-    }
-
-    return url.toString();
-  } catch {
-    return null;
-  }
 }

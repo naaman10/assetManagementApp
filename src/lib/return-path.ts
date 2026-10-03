@@ -1,5 +1,3 @@
-export const AUTH_RETURN_PATH_KEY = "auth_return_path";
-
 export function safeReturnPath(value: string | null | undefined): string {
   if (!value) {
     return "/";

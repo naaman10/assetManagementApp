@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { Logo } from "@/components/logo";
-import { ResumeReturnPath } from "@/components/resume-return-path";
 import { SignOutButton } from "@/components/sign-out-button";
 import { getSession } from "@/lib/auth";
 
@@ -11,7 +10,6 @@ export default async function HomePage() {
 
   return (
     <main className="flex min-h-dvh flex-col px-8 py-10 sm:px-12">
-      <ResumeReturnPath />
       <header className="flex items-center justify-between gap-6">
         <Logo />
         <SignOutButton />

@@ -1,8 +1,14 @@
+export type SessionRole = {
+  id: string;
+  name: string;
+};
+
 export type SessionUser = {
   id: string;
   email: string;
   name: string | null;
   picture: string | null;
+  roles: SessionRole[];
   permissions: string[];
 };
 
@@ -19,7 +25,7 @@ function apiOrigin(): string | undefined {
 
 /**
  * Asks the Render API whether the incoming cookies belong to a signed-in user.
- * `GET {API_URL}/auth/me` returns 200 `{ user: { id, email, name, picture, permissions } }` when they do.
+ * `GET {API_URL}/auth/me` returns 200 `{ user: { id, email, name, picture, roles, permissions } }` when they do.
  * Any other response, including 401, means signed out.
  */
 export async function getSession(
@@ -66,6 +72,7 @@ function parseSession(data: unknown): Session | null {
   const email = "email" in user ? user.email : undefined;
   const name = "name" in user ? user.name : null;
   const picture = "picture" in user ? user.picture : null;
+  const roles = "roles" in user ? user.roles : [];
   const permissions = "permissions" in user ? user.permissions : [];
 
   if (
@@ -83,6 +90,7 @@ function parseSession(data: unknown): Session | null {
       email,
       name: typeof name === "string" ? name : null,
       picture: typeof picture === "string" ? picture : null,
+      roles: parseRoles(roles),
       permissions: parsePermissions(permissions),
     },
   };
@@ -90,6 +98,32 @@ function parseSession(data: unknown): Session | null {
 
 export function hasPermission(user: SessionUser, permission: string): boolean {
   return user.permissions.includes(permission);
+}
+
+function parseRoles(value: unknown): SessionRole[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+
+    const id = "id" in item ? item.id : undefined;
+    const name = "name" in item ? item.name : undefined;
+
+    if (
+      typeof id !== "string" ||
+      id.length === 0 ||
+      typeof name !== "string" ||
+      name.length === 0
+    ) {
+      return [];
+    }
+
+    return [{ id, name }];
+  });
 }
 
 function parsePermissions(value: unknown): string[] {
