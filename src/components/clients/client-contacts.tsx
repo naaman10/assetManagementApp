@@ -33,9 +33,8 @@ export function ClientContacts({
 
   return (
     <section>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-medium tracking-tight">Contacts</h2>
-        {canEdit && !adding ? (
+      {canEdit && !adding ? (
+        <div className="flex justify-end">
           <button
             type="button"
             className={secondaryButtonClassName}
@@ -46,8 +45,8 @@ export function ClientContacts({
           >
             Add contact
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {client.contacts.length === 0 && !adding ? (
         <p className="mt-6 text-sm text-muted">No contacts yet.</p>
       ) : (

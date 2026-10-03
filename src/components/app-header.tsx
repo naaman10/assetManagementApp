@@ -27,35 +27,34 @@ export function AppHeader() {
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
   return (
-    <header className="relative z-20 flex flex-wrap items-center justify-between gap-6 px-8 py-8 sm:px-12">
-      <Link href="/" aria-label="Home">
+    <>
+      <Link href="/" aria-label="Home" className="fixed top-4 left-4 z-20">
         <Logo />
       </Link>
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-        {showClients ? (
-          <Link
-            href="/clients"
-            aria-current={pathname.startsWith("/clients") ? "page" : undefined}
-            className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${
-              pathname.startsWith("/clients")
-                ? "bg-inverse text-inverse-foreground"
-                : "text-ink"
-            }`}
-          >
-            Clients
-          </Link>
-        ) : null}
-        {showUsers || showRoles ? (
-          <UserManagementMenu
-            pathname={pathname}
-            user={user}
-            showUsers={showUsers}
-            showRoles={showRoles}
-          />
-        ) : null}
-        <SignOutButton />
-      </div>
-    </header>
+      <aside className="fixed top-20 left-4 z-20 flex h-[calc(100dvh-6rem)] w-60 flex-col overflow-hidden rounded-card bg-black px-4 py-6 text-inverse-foreground shadow-[0_16px_40px_rgba(26,26,26,0.2)] [&_a:focus-visible]:outline-inverse-foreground [&_button:focus-visible]:outline-inverse-foreground">
+        <nav
+          aria-label="Main"
+          className="grid min-h-0 flex-1 content-start gap-1 overflow-y-auto"
+        >
+          {showClients ? (
+            <NavLink href="/clients" active={pathname.startsWith("/clients")}>
+              Clients
+            </NavLink>
+          ) : null}
+          {showUsers || showRoles ? (
+            <UserManagementMenu
+              pathname={pathname}
+              user={user}
+              showUsers={showUsers}
+              showRoles={showRoles}
+            />
+          ) : null}
+        </nav>
+        <div className="shrink-0 pt-6">
+          <SignOutButton />
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -118,9 +117,9 @@ function UserManagementMenu({
         onClick={() => {
           setOpen((current) => !current);
         }}
-        className={`flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium ${
-          active || open ? "bg-inverse text-inverse-foreground" : "text-ink"
-        }`}
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-full px-4 text-sm font-medium ${navItemClass(
+          active || open,
+        )}`}
       >
         User management
         <Chevron open={open} />
@@ -129,7 +128,7 @@ function UserManagementMenu({
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 z-20 mt-2 grid min-w-44 rounded-card bg-surface p-2 shadow-card"
+          className="grid gap-1 py-1 pl-3"
         >
           {showUsers ? (
             <MenuLink
@@ -189,6 +188,28 @@ function areaHref(
   return listHref;
 }
 
+function NavLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${navItemClass(
+        active,
+      )}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function MenuLink({
   href,
   active,
@@ -206,13 +227,19 @@ function MenuLink({
       role="menuitem"
       aria-current={active ? "page" : undefined}
       onClick={onNavigate}
-      className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${
-        active ? "bg-inverse text-inverse-foreground" : "text-ink"
-      }`}
+      className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${navItemClass(
+        active,
+      )}`}
     >
       {children}
     </Link>
   );
+}
+
+function navItemClass(selected: boolean) {
+  return selected
+    ? "bg-accent text-accent-foreground"
+    : "text-inverse-foreground";
 }
 
 function Chevron({ open }: { open: boolean }) {

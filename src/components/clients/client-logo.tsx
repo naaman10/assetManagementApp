@@ -17,13 +17,12 @@ export function ClientLogo({
   const source = safeLogoUrl(logoUrl);
   const retries = useRef(0);
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
-  const frame =
-    size === "detail"
-      ? "size-24 rounded-card"
-      : "size-12 rounded-2xl";
-
   if (!source || brokenUrl === source) {
-    return <LogoPlaceholder name={name} className={frame} />;
+    if (size === "detail") {
+      return null;
+    }
+
+    return <LogoPlaceholder name={name} className="size-12 rounded-2xl" />;
   }
 
   return (
@@ -32,7 +31,11 @@ export function ClientLogo({
     <img
       src={source}
       alt=""
-      className={`${frame} shrink-0 bg-surface-warm object-cover`}
+      className={
+        size === "detail"
+          ? "h-auto max-h-24 w-auto max-w-full"
+          : "size-12 shrink-0 rounded-2xl bg-surface-warm object-cover"
+      }
       onError={() => {
         if (!onReload || retries.current >= 1) {
           setBrokenUrl(source);

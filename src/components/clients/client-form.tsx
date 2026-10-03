@@ -30,9 +30,11 @@ type ContactDraft = {
 export function ClientForm({
   client,
   onSaved,
+  leading,
 }: {
   client?: Client;
   onSaved?: (client: Client) => void;
+  leading?: React.ReactNode;
 }) {
   const router = useRouter();
   const creating = !client;
@@ -106,6 +108,7 @@ export function ClientForm({
           ) : null
         }
       />
+      {leading}
       <form
         className="mt-8 grid gap-5"
         method="post"

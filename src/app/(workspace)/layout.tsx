@@ -19,7 +19,9 @@ export default async function WorkspaceLayout({
     <SessionProvider user={session.user}>
       <div className="min-h-dvh">
         <AppHeader />
-        <main className="px-8 pb-16 sm:px-12">{children}</main>
+        <main className="min-h-dvh ml-[17rem] px-5 pt-20 pb-8 sm:px-12 sm:pb-10">
+          {children}
+        </main>
       </div>
     </SessionProvider>
   );

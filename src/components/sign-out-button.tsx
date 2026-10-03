@@ -24,7 +24,7 @@ export function SignOutButton() {
       onClick={() => {
         void signOut();
       }}
-      className="flex h-12 items-center justify-center rounded-full bg-accent px-5 text-sm font-medium text-accent-foreground"
+      className="flex h-12 w-full items-center justify-center rounded-full bg-accent px-5 text-sm font-medium text-accent-foreground"
     >
       Sign out
     </button>
