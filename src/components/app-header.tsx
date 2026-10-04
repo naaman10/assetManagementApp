@@ -41,6 +41,11 @@ export function AppHeader() {
               Clients
             </NavLink>
           ) : null}
+          {showClients ? (
+            <NavLink href="/sites" active={pathname.startsWith("/sites")}>
+              Sites
+            </NavLink>
+          ) : null}
           {showUsers || showRoles ? (
             <UserManagementMenu
               pathname={pathname}

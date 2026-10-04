@@ -5,12 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientContacts } from "@/components/clients/client-contacts";
 import { ClientLogo } from "@/components/clients/client-logo";
+import { ClientSites } from "@/components/clients/client-sites";
 import { Forbidden } from "@/components/forbidden";
 import { secondaryButtonClassName } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
 import { apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody, type Address, type Client } from "@/lib/clients";
-import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
+import {
+  CLIENTS_CREATE,
+  CLIENTS_EDIT,
+  CLIENTS_VIEW,
+  hasPermission,
+} from "@/lib/session";
 
 const tabs = [
   { id: "sites", label: "Sites", empty: "No sites yet." },
@@ -25,6 +31,7 @@ export function ClientEditor({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useSession();
   const canView = hasPermission(user, CLIENTS_VIEW);
+  const canCreate = hasPermission(user, CLIENTS_CREATE);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const request = useApi(canView ? `/api/clients/${id}` : null, parseClientBody);
   const [saved, setSaved] = useState<Client | null>(null);
@@ -148,6 +155,18 @@ export function ClientEditor({ id }: { id: string }) {
                 onClient={setSaved}
                 onMissing={() => {
                   router.replace("/clients");
+                }}
+              />
+            ) : item.id === "sites" ? (
+              <ClientSites
+                client={client}
+                canCreate={canCreate}
+                onClient={setSaved}
+                onMissing={() => {
+                  router.replace("/clients");
+                }}
+                onShowContacts={() => {
+                  setTab("contacts");
                 }}
               />
             ) : (

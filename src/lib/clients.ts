@@ -1,3 +1,5 @@
+import { parseSite, type Site } from "@/lib/sites";
+
 export type Address = {
   line1: string;
   line2: string | null;
@@ -23,6 +25,7 @@ export type Client = {
   logoUrl: string | null;
   address: Address;
   contacts: Contact[];
+  sites: Site[];
   createdAt: string;
   updatedAt: string;
 };
@@ -115,6 +118,7 @@ function parseClient(value: unknown): Client {
     contacts: Array.isArray(record.contacts)
       ? record.contacts.map(parseContact)
       : [],
+    sites: Array.isArray(record.sites) ? record.sites.map(parseSite) : [],
     createdAt: optionalString(record, "createdAt") ?? "",
     updatedAt: optionalString(record, "updatedAt") ?? "",
   };

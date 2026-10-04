@@ -163,7 +163,7 @@ export function ClientForm({
   );
 }
 
-function AddressFields({
+export function AddressFields({
   line1,
   line2,
   city,
