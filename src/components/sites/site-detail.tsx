@@ -5,12 +5,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
-import { secondaryButtonClassName } from "@/components/form-controls";
+import {
+  DataTable,
+  FormBanner,
+  TextField,
+  bannerMessage,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+} from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
-import { apiRequest, asApiError, useApi } from "@/lib/api-client";
+import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody, type Address } from "@/lib/clients";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
-import { parseSiteDetail, type SiteContact as Contact, type SiteDetail } from "@/lib/sites";
+import {
+  parseLocationBody,
+  parseSiteDetail,
+  type SiteContact as Contact,
+  type SiteDetail,
+} from "@/lib/sites";
 
 export function SiteDetailView({ id }: { id: string }) {
   const router = useRouter();
@@ -61,6 +73,8 @@ export function SiteDetailView({ id }: { id: string }) {
       setSaved({
         ...loaded,
         client: { ...loaded.client, logoUrl: client.logoUrl },
+        locations: loaded.locations,
+        locationCount: loaded.locationCount,
       });
       return client.logoUrl;
     } catch (error) {
@@ -105,8 +119,205 @@ export function SiteDetailView({ id }: { id: string }) {
         </div>
         <SiteContact contact={site.contact} />
       </section>
+      <Locations
+        siteId={site.id}
+        locations={site.locations}
+        locationCount={site.locationCount}
+        canEdit={canEdit}
+        onSite={setSaved}
+        onMissing={() => {
+          router.replace("/sites");
+        }}
+      />
     </div>
   );
+}
+
+function Locations({
+  siteId,
+  locations,
+  locationCount,
+  canEdit,
+  onSite,
+  onMissing,
+}: {
+  siteId: string;
+  locations: SiteDetail["locations"];
+  locationCount: number;
+  canEdit: boolean;
+  onSite: (site: SiteDetail) => void;
+  onMissing: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [openForSite, setOpenForSite] = useState(siteId);
+
+  if (openForSite !== siteId) {
+    setOpenForSite(siteId);
+    setAdding(false);
+  }
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Locations{" "}
+          <span className="ml-2 text-sm font-medium text-gray-500">{locationCount}</span>
+        </h2>
+        {canEdit && !adding ? (
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            onClick={() => {
+              setAdding(true);
+            }}
+          >
+            Add location
+          </button>
+        ) : null}
+      </div>
+      {locations.length === 0 && !adding ? (
+        <p className="mt-6 text-sm text-gray-500">No locations yet.</p>
+      ) : locations.length > 0 ? (
+        <DataTable columns={["Name", "Location code"]}>
+          {locations.map((location) => (
+            <tr key={location.id} className="hover:bg-gray-50">
+              <td className="px-5 py-4 text-sm font-medium text-gray-800">
+                {location.name ?? "—"}
+              </td>
+              <td className="px-5 py-4 text-sm text-gray-500">
+                {location.locationCode ?? "—"}
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      ) : null}
+      {adding ? (
+        <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+          <LocationForm
+            siteId={siteId}
+            onCancel={() => {
+              setAdding(false);
+            }}
+            onCreated={(site) => {
+              setAdding(false);
+              onSite(site);
+            }}
+            onMissing={onMissing}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function LocationForm({
+  siteId,
+  onCancel,
+  onCreated,
+  onMissing,
+}: {
+  siteId: string;
+  onCancel: () => void;
+  onCreated: (site: SiteDetail) => void;
+  onMissing: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [locationCode, setLocationCode] = useState("");
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const fieldErrors = error?.fieldErrors ?? {};
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = locationPayload(name, locationCode);
+
+    if (!payload) {
+      setError(new ApiRequestError(400, "Enter a name or a location code."));
+      return;
+    }
+
+    setPending(true);
+    setError(null);
+
+    try {
+      parseLocationBody(
+        await apiRequest(`/api/sites/${siteId}/locations`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+      );
+      onCreated(parseSiteDetail(await apiRequest(`/api/sites/${siteId}`)));
+    } catch (caught) {
+      const apiError = asApiError(caught);
+
+      if (apiError.status === 404) {
+        onMissing();
+        return;
+      }
+
+      setError(apiError);
+      setPending(false);
+    }
+  }
+
+  return (
+    <form className="grid gap-5" onSubmit={onSubmit}>
+      <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
+      <TextField
+        id={`location-${siteId}-name`}
+        label="Name"
+        name="name"
+        maxLength={200}
+        value={name}
+        disabled={pending}
+        messages={fieldErrors.name}
+        onChange={(event) => {
+          setName(event.target.value);
+        }}
+      />
+      <TextField
+        id={`location-${siteId}-code`}
+        label="Location code"
+        name="locationCode"
+        maxLength={200}
+        value={locationCode}
+        disabled={pending}
+        messages={fieldErrors.locationCode}
+        onChange={(event) => {
+          setLocationCode(event.target.value);
+        }}
+      />
+      <div className="flex flex-wrap gap-3">
+        <button type="submit" disabled={pending} className={primaryButtonClassName}>
+          {pending ? "Saving…" : "Add location"}
+        </button>
+        <button
+          type="button"
+          className={secondaryButtonClassName}
+          disabled={pending}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function locationPayload(name: string, locationCode: string): Record<string, string> | null {
+  const payload: Record<string, string> = {};
+  const trimmedName = name.trim();
+  const trimmedCode = locationCode.trim();
+
+  if (trimmedName) {
+    payload.name = trimmedName;
+  }
+
+  if (trimmedCode) {
+    payload.locationCode = trimmedCode;
+  }
+
+  return Object.keys(payload).length > 0 ? payload : null;
 }
 
 function formatAddress(address: Address): string {

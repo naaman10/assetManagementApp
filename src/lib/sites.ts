@@ -24,8 +24,19 @@ export type Site = {
   updatedAt: string;
 };
 
+export type SiteLocation = {
+  id: string;
+  siteId: string;
+  locationCode: string | null;
+  name: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SiteDetail = Site & {
   client: SiteClient;
+  locations: SiteLocation[];
+  locationCount: number;
 };
 
 export function parseSite(value: unknown): Site {
@@ -46,14 +57,54 @@ export function parseSiteBody(data: unknown): Site {
   return parseSite(readSite(data));
 }
 
+export function parseLocationBody(data: unknown): SiteLocation {
+  if (!data || typeof data !== "object" || !("location" in data)) {
+    throw new Error("The response was missing a location.");
+  }
+
+  return parseLocation(data.location);
+}
+
 export function parseSiteDetail(data: unknown): SiteDetail {
   const value = readSite(data);
   const record = objectRecord(value, "site");
+  const locations = parseLocations(record.locations);
 
   return {
     ...parseSite(record),
     client: parseSiteClient(record.client),
+    locations,
+    locationCount: locationCount(record.locationCount, locations.length),
   };
+}
+
+function parseLocations(value: unknown): SiteLocation[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map(parseLocation);
+}
+
+function parseLocation(value: unknown): SiteLocation {
+  const record = objectRecord(value, "location");
+
+  return {
+    id: requiredString(record, "id"),
+    siteId: requiredString(record, "siteId"),
+    locationCode: optionalString(record, "locationCode"),
+    name: optionalString(record, "name"),
+    createdAt: optionalString(record, "createdAt") ?? "",
+    updatedAt: optionalString(record, "updatedAt") ?? "",
+  };
+}
+
+function locationCount(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function parseSiteClient(value: unknown): SiteClient {

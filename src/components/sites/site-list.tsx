@@ -14,13 +14,15 @@ import {
 } from "@/lib/api-client";
 import { parseClientBody, parseClientList, type Client } from "@/lib/clients";
 import { CLIENTS_VIEW, hasPermission } from "@/lib/session";
-import type { SiteDetail } from "@/lib/sites";
+import type { Site, SiteClient } from "@/lib/sites";
+
+type ListedSite = Site & { client: SiteClient };
 
 export function SiteList() {
   const { user } = useSession();
   const canView = hasPermission(user, CLIENTS_VIEW);
   const request = useApi(canView ? "/api/clients" : null, parseClientList);
-  const [rows, setRows] = useState<SiteDetail[] | null>(null);
+  const [rows, setRows] = useState<ListedSite[] | null>(null);
   const [rowsFrom, setRowsFrom] = useState<Client[] | null>(null);
   const [detailsError, setDetailsError] = useState<ApiRequestError | null>(null);
 
@@ -119,7 +121,7 @@ function SiteRows({
   sites,
   onReload,
 }: {
-  sites: SiteDetail[];
+  sites: ListedSite[];
   onReload: (clientId: string) => Promise<string | null>;
 }) {
   if (sites.length === 0) {
@@ -154,7 +156,7 @@ function SiteRows({
   );
 }
 
-async function loadSites(clients: Client[]): Promise<SiteDetail[]> {
+async function loadSites(clients: Client[]): Promise<ListedSite[]> {
   const details = await Promise.all(
     clients.map(async (client) => {
       try {
