@@ -10,7 +10,7 @@ import { useSession } from "@/components/session-provider";
 import { apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody, type Address } from "@/lib/clients";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
-import { parseSiteDetail, type SiteDetail } from "@/lib/sites";
+import { parseSiteDetail, type SiteContact as Contact, type SiteDetail } from "@/lib/sites";
 
 export function SiteDetailView({ id }: { id: string }) {
   const router = useRouter();
@@ -103,13 +103,7 @@ export function SiteDetailView({ id }: { id: string }) {
             </Link>
           ) : null}
         </div>
-        <p className="mt-8 text-sm text-muted">Contact</p>
-        <dl className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-          <DetailField label="Name" value={site.contact.name} />
-          <DetailField label="Role" value={site.contact.role} />
-          <DetailField label="Email" value={site.contact.email} />
-          <DetailField label="Telephone" value={site.contact.telephone} />
-        </dl>
+        <SiteContact contact={site.contact} />
       </section>
     </div>
   );
@@ -128,11 +122,98 @@ function formatAddress(address: Address): string {
     .join("\n");
 }
 
-function DetailField({ label, value }: { label: string; value: string | null }) {
+function SiteContact({ contact }: { contact: Contact }) {
+  const email = mailtoHref(contact.email);
+  const telephone = telHref(contact.telephone);
+
   return (
-    <div>
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="mt-1 text-sm font-medium">{value || "—"}</dd>
+    <div className="mt-8 inline-flex max-w-full items-center gap-4 rounded-2xl border border-line px-4 py-3">
+      <div className="min-w-0">
+        <p className="truncate font-medium">{contact.name}</p>
+        {contact.role ? (
+          <p className="mt-1 truncate text-sm text-muted">{contact.role}</p>
+        ) : null}
+      </div>
+      {email || telephone ? (
+        <div className="flex shrink-0 gap-2">
+          {email ? (
+            <a
+              href={email}
+              aria-label={`Email ${contact.name}`}
+              title={contact.email ?? undefined}
+              className="flex size-10 items-center justify-center rounded-full border border-line"
+            >
+              <MailIcon />
+            </a>
+          ) : null}
+          {telephone ? (
+            <a
+              href={telephone}
+              aria-label={`Call ${contact.name}`}
+              title={contact.telephone ?? undefined}
+              className="flex size-10 items-center justify-center rounded-full border border-line"
+            >
+              <PhoneIcon />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function mailtoHref(email: string | null): string | null {
+  const value = email?.trim() ?? "";
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return null;
+  }
+
+  return `mailto:${value}`;
+}
+
+function telHref(telephone: string | null): string | null {
+  const value = telephone?.trim() ?? "";
+
+  if (!/^[+0-9().\s-]{3,}$/.test(value)) {
+    return null;
+  }
+
+  return `tel:${value.replace(/[^\d+]/g, "")}`;
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+      <rect
+        x="2"
+        y="3.5"
+        width="12"
+        height="9"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M2.5 4.5 8 8.5 13.5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+      <path
+        d="M5.2 2.8h1.1c.4 0 .7.2.8.6l.5 1.5a.8.8 0 0 1-.4 1l-.9.4a6.4 6.4 0 0 0 3.4 3.4l.4-.9a.8.8 0 0 1 1-.4l1.5.5c.4.1.6.4.6.8v1.1c0 .5-.4.9-.9.9-5.2.6-8.8-3-8.2-8.2 0-.5.4-.9.9-.9Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

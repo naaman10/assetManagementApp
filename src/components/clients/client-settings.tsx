@@ -231,28 +231,30 @@ export function ClientSettings({
     </div>
   );
 
-  if (!canEdit) {
-    return groups;
-  }
-
   return (
-    <form
-      className="grid gap-8"
-      method="post"
-      onSubmit={(event) => {
-        void onSubmit(event);
-      }}
-    >
-      <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
-      {groups}
-      <button
-        type="submit"
-        disabled={pending || (canViewUsers && usersRequest.loading)}
-        className={primaryButtonClassName}
-      >
-        {pending ? "Saving…" : "Save"}
-      </button>
-    </form>
+    <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
+      {canEdit ? (
+        <form
+          className="grid gap-8"
+          method="post"
+          onSubmit={(event) => {
+            void onSubmit(event);
+          }}
+        >
+          <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
+          {groups}
+          <button
+            type="submit"
+            disabled={pending || (canViewUsers && usersRequest.loading)}
+            className={primaryButtonClassName}
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </form>
+      ) : (
+        groups
+      )}
+    </section>
   );
 }
 

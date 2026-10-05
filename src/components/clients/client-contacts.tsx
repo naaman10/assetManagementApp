@@ -64,17 +64,6 @@ export function ClientContacts({
                     setEditingId(null);
                     onClient(next);
                   }}
-                  onMissing={onMissing}
-                />
-              ) : (
-                <ContactSummary
-                  clientId={client.id}
-                  contact={contact}
-                  canEdit={canEdit}
-                  onEdit={() => {
-                    setAdding(false);
-                    setEditingId(contact.id);
-                  }}
                   onDeleted={() => {
                     onClient({
                       ...client,
@@ -82,6 +71,15 @@ export function ClientContacts({
                     });
                   }}
                   onMissing={onMissing}
+                />
+              ) : (
+                <ContactSummary
+                  contact={contact}
+                  canEdit={canEdit}
+                  onEdit={() => {
+                    setAdding(false);
+                    setEditingId(contact.id);
+                  }}
                 />
               )}
             </li>
@@ -108,72 +106,31 @@ export function ClientContacts({
 }
 
 function ContactSummary({
-  clientId,
   contact,
   canEdit,
   onEdit,
-  onDeleted,
-  onMissing,
 }: {
-  clientId: string;
   contact: Contact;
   canEdit: boolean;
   onEdit: () => void;
-  onDeleted: () => void;
-  onMissing: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function remove() {
-    setPending(true);
-    setError(null);
-
-    try {
-      await apiRequest(`/api/clients/${clientId}/contacts/${contact.id}`, {
-        method: "DELETE",
-      });
-      onDeleted();
-    } catch (caught) {
-      const apiError = asApiError(caught);
-
-      if (apiError.status === 404) {
-        onMissing();
-        return;
-      }
-
-      setError(apiError.message);
-      setPending(false);
-    }
-  }
-
   return (
-    <div className="grid gap-4">
-      <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+    <div className="flex items-start justify-between gap-4">
+      <dl className="grid min-w-0 flex-1 gap-x-8 gap-y-4 sm:grid-cols-2">
         <DetailField label="Name" value={contact.name} />
         <DetailField label="Role" value={contact.role} />
         <DetailField label="Email" value={contact.email} />
         <DetailField label="Telephone" value={contact.telephone} />
       </dl>
-      {error ? (
-        <p className="text-sm leading-6 text-ink" role="alert">
-          {error}
-        </p>
-      ) : null}
       {canEdit ? (
-        <div className="flex flex-wrap gap-3">
-          <button type="button" className={secondaryButtonClassName} onClick={onEdit}>
-            Edit
-          </button>
-          <ConfirmDelete
-            label="Delete contact"
-            question="Delete this contact?"
-            pending={pending}
-            onConfirm={() => {
-              void remove();
-            }}
-          />
-        </div>
+        <button
+          type="button"
+          aria-label={`Edit ${contact.name}`}
+          onClick={onEdit}
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line"
+        >
+          <PencilIcon />
+        </button>
       ) : null}
     </div>
   );
@@ -184,12 +141,14 @@ function ContactForm({
   contact,
   onCancel,
   onClient,
+  onDeleted,
   onMissing,
 }: {
   clientId: string;
   contact?: Contact;
   onCancel: () => void;
   onClient: (client: Client) => void;
+  onDeleted?: () => void;
   onMissing: () => void;
 }) {
   const creating = !contact;
@@ -199,6 +158,8 @@ function ContactForm({
   const [telephone, setTelephone] = useState(contact?.telephone ?? "");
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [pending, setPending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const fieldErrors = error?.fieldErrors ?? {};
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -239,42 +200,110 @@ function ContactForm({
     }
   }
 
+  async function remove() {
+    if (!contact) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await apiRequest(`/api/clients/${clientId}/contacts/${contact.id}`, {
+        method: "DELETE",
+      });
+      onDeleted?.();
+    } catch (caught) {
+      const apiError = asApiError(caught);
+
+      if (apiError.status === 404) {
+        onMissing();
+        return;
+      }
+
+      setDeleteError(apiError.message);
+      setDeleting(false);
+    }
+  }
+
   return (
-    <form
-      className="grid gap-5"
-      method="post"
-      onSubmit={(event) => {
-        void onSubmit(event);
-      }}
-    >
-      <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
-      <ContactFields
-        idPrefix={contact?.id ?? "new-contact"}
-        name={name}
-        role={role}
-        email={email}
-        telephone={telephone}
-        pending={pending}
-        fieldErrors={fieldErrors}
-        onName={setName}
-        onRole={setRole}
-        onEmail={setEmail}
-        onTelephone={setTelephone}
+    <div className="grid gap-8">
+      <form
+        className="grid gap-5"
+        method="post"
+        onSubmit={(event) => {
+          void onSubmit(event);
+        }}
+      >
+        <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
+        <ContactFields
+          idPrefix={contact?.id ?? "new-contact"}
+          name={name}
+          role={role}
+          email={email}
+          telephone={telephone}
+          pending={pending || deleting}
+          fieldErrors={fieldErrors}
+          onName={setName}
+          onRole={setRole}
+          onEmail={setEmail}
+          onTelephone={setTelephone}
+        />
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            disabled={pending || deleting}
+            className={primaryButtonClassName}
+          >
+            {pending ? "Saving…" : creating ? "Add contact" : "Save"}
+          </button>
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            disabled={pending || deleting}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+      {contact ? (
+        <div className="grid gap-3">
+          {deleteError ? (
+            <p className="text-sm leading-6 text-ink" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <ConfirmDelete
+            label="Delete contact"
+            question="Delete this contact?"
+            pending={deleting}
+            onConfirm={() => {
+              void remove();
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+      <path
+        d="M9.2 2.8 13.2 6.8 5.4 14.6H1.4v-4L9.2 2.8Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
       />
-      <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={pending} className={primaryButtonClassName}>
-          {pending ? "Saving…" : creating ? "Add contact" : "Save"}
-        </button>
-        <button
-          type="button"
-          className={secondaryButtonClassName}
-          disabled={pending}
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+      <path
+        d="m8 4 4 4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
