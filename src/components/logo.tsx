@@ -1,13 +1,8 @@
 export function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-11 place-items-center rounded-2xl bg-inverse text-inverse-foreground">
-        <svg
-          viewBox="0 0 24 24"
-          className="size-6"
-          fill="none"
-          aria-hidden="true"
-        >
+      <span className="grid size-10 place-items-center rounded-lg bg-brand-500 text-white">
+        <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden="true">
           <path
             d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5v-7Z"
             stroke="currentColor"
@@ -22,7 +17,7 @@ export function Logo() {
           />
         </svg>
       </span>
-      <span className="text-lg font-medium tracking-tight">JAM</span>
+      <span className="text-lg font-semibold text-gray-800">JAM</span>
     </div>
   );
 }

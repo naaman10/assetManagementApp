@@ -113,7 +113,7 @@ export function RoleForm({
   const title = creating ? "Create role" : (baseline ?? role).name;
 
   return (
-    <section className="max-w-xl">
+    <section className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs sm:p-6">
       <PageHeading title={title} />
       <form className="mt-8 grid gap-5" method="post" onSubmit={onSubmit}>
         <FormBanner
@@ -150,10 +150,10 @@ export function RoleForm({
             onChange={(event) => {
               setDescription(event.target.value);
             }}
-            className="mt-2 min-h-28 w-full rounded-card border border-line bg-surface px-4 py-3 text-sm disabled:opacity-60"
+            className="mt-1.5 min-h-28 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
           />
           {error?.fieldErrors.description ? (
-            <p className="mt-2 text-sm leading-6 text-ink" role="alert">
+            <p className="mt-1.5 text-sm text-error-500" role="alert">
               {error.fieldErrors.description.join(" ")}
             </p>
           ) : null}

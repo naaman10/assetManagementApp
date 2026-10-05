@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import { Google_Sans } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 
-const googleSans = Google_Sans({
+const outfit = Outfit({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-google-sans",
+  variable: "--font-outfit",
   display: "swap",
-  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -17,8 +15,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${googleSans.variable} h-full`}>
-      <body className={`${googleSans.className} min-h-full antialiased`}>
+    <html lang="en" className={`${outfit.variable} h-full`}>
+      <body className={`${outfit.className} min-h-full antialiased`}>
         {children}
       </body>
     </html>

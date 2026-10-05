@@ -106,7 +106,7 @@ export function EditClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid max-w-xl gap-10">
+    <div className="grid max-w-3xl gap-10">
       <ClientForm
         client={client}
         leading={

@@ -127,7 +127,7 @@ function ContactSummary({
           type="button"
           aria-label={`Edit ${contact.name}`}
           onClick={onEdit}
-          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
         >
           <PencilIcon />
         </button>

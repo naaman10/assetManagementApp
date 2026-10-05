@@ -98,7 +98,7 @@ export function UserForm({
   const current = baseline ?? user;
 
   return (
-    <section className="max-w-xl">
+    <section className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs sm:p-6">
       <PageHeading title={creating ? "Create user" : (current?.email ?? "User")} />
       <form className="mt-8 grid gap-5" method="post" onSubmit={onSubmit}>
         <FormBanner

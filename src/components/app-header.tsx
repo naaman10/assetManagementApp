@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
@@ -22,27 +22,71 @@ import {
 export function AppHeader() {
   const pathname = usePathname();
   const { user } = useSession();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [openOnPath, setOpenOnPath] = useState(pathname);
   const showClients = hasPermission(user, CLIENTS_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
+  if (pathname !== openOnPath) {
+    setOpenOnPath(pathname);
+    setMobileOpen(false);
+  }
+
   return (
     <>
-      <Link href="/" aria-label="Home" className="fixed top-4 left-4 z-20">
-        <Logo />
-      </Link>
-      <aside className="fixed top-20 left-4 z-20 flex h-[calc(100dvh-6rem)] w-60 flex-col overflow-hidden rounded-card bg-black px-4 py-6 text-inverse-foreground shadow-[0_16px_40px_rgba(26,26,26,0.2)] [&_a:focus-visible]:outline-inverse-foreground [&_button:focus-visible]:outline-inverse-foreground">
-        <nav
-          aria-label="Main"
-          className="grid min-h-0 flex-1 content-start gap-1 overflow-y-auto"
+      <header className="fixed top-0 right-0 left-0 z-40 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 lg:hidden">
+        <button
+          type="button"
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          onClick={() => {
+            setMobileOpen(true);
+          }}
+          className="flex size-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
         >
+          <MenuIcon />
+        </button>
+        <Logo />
+      </header>
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+          onClick={() => {
+            setMobileOpen(false);
+          }}
+        />
+      ) : null}
+      <aside
+        className={`fixed top-0 left-0 z-50 flex h-screen w-[290px] flex-col border-r border-gray-200 bg-white transition-transform lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between px-5 py-6">
+          <Link href="/" aria-label="Home">
+            <Logo />
+          </Link>
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="flex size-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 lg:hidden"
+            onClick={() => {
+              setMobileOpen(false);
+            }}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <nav aria-label="Main" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4">
           {showClients ? (
-            <NavLink href="/clients" active={pathname.startsWith("/clients")}>
+            <NavLink href="/clients" active={pathname.startsWith("/clients")} icon={<ClientsIcon />}>
               Clients
             </NavLink>
           ) : null}
           {showClients ? (
-            <NavLink href="/sites" active={pathname.startsWith("/sites")}>
+            <NavLink href="/sites" active={pathname.startsWith("/sites")} icon={<SitesIcon />}>
               Sites
             </NavLink>
           ) : null}
@@ -55,7 +99,13 @@ export function AppHeader() {
             />
           ) : null}
         </nav>
-        <div className="shrink-0 pt-6">
+        <div className="border-t border-gray-200 px-5 py-4">
+          <p className="truncate text-sm font-medium text-gray-800">
+            {user.name || user.email}
+          </p>
+          {user.name ? (
+            <p className="truncate text-xs text-gray-500">{user.email}</p>
+          ) : null}
           <SignOutButton />
         </div>
       </aside>
@@ -75,66 +125,29 @@ function UserManagementMenu({
   showRoles: boolean;
 }) {
   const menuId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [openOnPath, setOpenOnPath] = useState(pathname);
   const active =
-    pathname.startsWith("/settings/users") ||
-    pathname.startsWith("/settings/roles");
-
-  if (pathname !== openOnPath) {
-    setOpenOnPath(pathname);
-    setOpen(false);
-  }
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
+    pathname.startsWith("/settings/users") || pathname.startsWith("/settings/roles");
+  const [open, setOpen] = useState(active);
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-haspopup="menu"
         onClick={() => {
           setOpen((current) => !current);
         }}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded-full px-4 text-sm font-medium ${navItemClass(
-          active || open,
-        )}`}
+        className={`menu-item ${active || open ? "menu-item-active" : "menu-item-inactive"}`}
       >
-        User management
+        <span className={active || open ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
+          <UsersIcon />
+        </span>
+        <span className="flex-1 text-left">User management</span>
         <Chevron open={open} />
       </button>
       {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          className="grid gap-1 py-1 pl-3"
-        >
+        <div id={menuId} className="mt-1 grid gap-1 pl-9">
           {showUsers ? (
             <MenuLink
               href={areaHref(
@@ -145,9 +158,6 @@ function UserManagementMenu({
                 "/settings/users/new",
               )}
               active={pathname.startsWith("/settings/users")}
-              onNavigate={() => {
-                setOpen(false);
-              }}
             >
               Users
             </MenuLink>
@@ -162,9 +172,6 @@ function UserManagementMenu({
                 "/settings/roles/new",
               )}
               active={pathname.startsWith("/settings/roles")}
-              onNavigate={() => {
-                setOpen(false);
-              }}
             >
               Roles
             </MenuLink>
@@ -196,20 +203,23 @@ function areaHref(
 function NavLink({
   href,
   active,
+  icon,
   children,
 }: {
   href: string;
   active: boolean;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${navItemClass(
-        active,
-      )}`}
+      className={`menu-item ${active ? "menu-item-active" : "menu-item-inactive"}`}
     >
+      <span className={active ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
+        {icon}
+      </span>
       {children}
     </Link>
   );
@@ -218,33 +228,23 @@ function NavLink({
 function MenuLink({
   href,
   active,
-  onNavigate,
   children,
 }: {
   href: string;
   active: boolean;
-  onNavigate: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      role="menuitem"
       aria-current={active ? "page" : undefined}
-      onClick={onNavigate}
-      className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${navItemClass(
-        active,
-      )}`}
+      className={`menu-dropdown-item ${
+        active ? "menu-dropdown-item-active" : "menu-dropdown-item-inactive"
+      }`}
     >
       {children}
     </Link>
   );
-}
-
-function navItemClass(selected: boolean) {
-  return selected
-    ? "bg-accent text-accent-foreground"
-    : "text-inverse-foreground";
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -261,6 +261,73 @@ function Chevron({ open }: { open: boolean }) {
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M3 5.5h14M3 10h14M3 14.5h14"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="m5 5 10 10M15 5 5 15"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ClientsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M3.5 7.5 10 4l6.5 3.5v6L10 17l-6.5-3.5v-6Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SitesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M10 17s5-4.2 5-8a5 5 0 1 0-10 0c0 3.8 5 8 5 8Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="10" cy="9" r="1.6" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <circle cx="7.5" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M3.8 15.2c.6-2 2-3 3.7-3s3.1 1 3.7 3M12.2 6.2a2 2 0 0 1 0 3.6M13.2 12.2c1.2.2 2.1 1 2.6 2.8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
       />
     </svg>
   );

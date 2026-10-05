@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --canvas: #f8f0b8;
+  --canvas: #f9fafb;
   --surface: #ffffff;
-  --surface-warm: #f8e8b8;
-  --ink: #1a1a1a;
-  --muted: #6b655c;
-  --line: #e6d48a;
-  --accent: #fcc834;
-  --accent-foreground: #1a1a1a;
-  --inverse: #2c2c2c;
+  --surface-warm: #f2f4f7;
+  --ink: #1d2939;
+  --muted: #667085;
+  --line: #e4e7ec;
+  --accent: #465fff;
+  --accent-foreground: #ffffff;
+  --inverse: #101828;
   --inverse-foreground: #ffffff;
-  --radius-card: 1.5rem;
-  --shadow-card: 0 8px 24px rgba(48, 40, 16, 0.06);
+  --radius-card: 1rem;
+  --shadow-card: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
 }
 
 @theme inline {
@@ -26,9 +26,64 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-inverse: var(--inverse);
   --color-inverse-foreground: var(--inverse-foreground);
-  --font-sans: var(--font-google-sans), "Google Sans", sans-serif;
+  --color-brand-25: #f2f7ff;
+  --color-brand-50: #ecf3ff;
+  --color-brand-100: #dde9ff;
+  --color-brand-300: #9cb9ff;
+  --color-brand-500: #465fff;
+  --color-brand-600: #3641f5;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f7;
+  --color-gray-200: #e4e7ec;
+  --color-gray-300: #d0d5dd;
+  --color-gray-400: #98a2b3;
+  --color-gray-500: #667085;
+  --color-gray-700: #344054;
+  --color-gray-800: #1d2939;
+  --color-error-50: #fef3f2;
+  --color-error-200: #fecdca;
+  --color-error-500: #f04438;
+  --color-error-600: #d92d20;
+  --color-success-50: #ecfdf3;
+  --color-success-600: #039855;
+  --font-sans: var(--font-outfit), Outfit, sans-serif;
   --radius-card: var(--radius-card);
   --shadow-card: var(--shadow-card);
+  --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --text-theme-sm: 14px;
+  --text-theme-sm--line-height: 20px;
+}
+
+@utility menu-item {
+  @apply relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium;
+}
+
+@utility menu-item-active {
+  @apply bg-brand-50 text-brand-500;
+}
+
+@utility menu-item-inactive {
+  @apply text-gray-700 hover:bg-gray-100;
+}
+
+@utility menu-item-icon-active {
+  @apply text-brand-500;
+}
+
+@utility menu-item-icon-inactive {
+  @apply text-gray-500;
+}
+
+@utility menu-dropdown-item {
+  @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium;
+}
+
+@utility menu-dropdown-item-active {
+  @apply bg-brand-50 text-brand-500;
+}
+
+@utility menu-dropdown-item-inactive {
+  @apply text-gray-700 hover:bg-gray-100;
 }
 
 body {
@@ -37,12 +92,16 @@ body {
   font-family: var(--font-sans);
 }
 
+.rounded-card.bg-surface {
+  border: 1px solid #e4e7ec;
+}
+
 ::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
+  background: #c2d6ff;
+  color: #1d2939;
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid #465fff;
   outline-offset: 2px;
 }

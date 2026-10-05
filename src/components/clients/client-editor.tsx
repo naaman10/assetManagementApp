@@ -99,8 +99,8 @@ export function ClientEditor({ id }: { id: string }) {
               onReload={reloadLogo}
             />
             <div className="min-w-0">
-              <p className="text-sm text-muted">Client</p>
-              <h1 className="mt-1 text-4xl font-medium tracking-tight">{client.name}</h1>
+              <p className="text-sm text-gray-500">Client</p>
+              <h1 className="mt-1 text-2xl font-semibold text-gray-800">{client.name}</h1>
               <p className="mt-3 text-sm text-muted">Reference</p>
               <p className="mt-1 text-sm font-medium">{client.reference ?? "—"}</p>
               <p className="mt-3 text-sm leading-6 whitespace-pre-line">
@@ -119,7 +119,11 @@ export function ClientEditor({ id }: { id: string }) {
         </div>
       </section>
       <section>
-        <div role="tablist" aria-label="Client records" className="flex flex-wrap gap-2">
+        <div
+          role="tablist"
+          aria-label="Client records"
+          className="flex flex-wrap gap-6 border-b border-gray-200"
+        >
           {tabs.map((item) => {
             const selected = tab === item.id;
 
@@ -134,8 +138,10 @@ export function ClientEditor({ id }: { id: string }) {
                 onClick={() => {
                   setTab(item.id);
                 }}
-                className={`flex h-10 items-center rounded-full px-4 text-sm font-medium ${
-                  selected ? "bg-inverse text-inverse-foreground" : "text-ink"
+                className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                  selected
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
               >
                 {item.label}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SiteForm } from "@/components/sites/site-form";
-import { secondaryButtonClassName } from "@/components/form-controls";
+import { DataTable, secondaryButtonClassName } from "@/components/form-controls";
 import type { Client } from "@/lib/clients";
 
 export function ClientSites({
@@ -43,29 +43,28 @@ export function ClientSites({
         </div>
       ) : null}
       {client.sites.length === 0 && !adding ? (
-        <p className="mt-6 text-sm text-muted">No sites yet.</p>
+        <p className="mt-6 text-sm text-gray-500">No sites yet.</p>
       ) : client.sites.length > 0 ? (
-        <ul className="mt-6 divide-y divide-line overflow-hidden rounded-card bg-surface shadow-card">
+        <DataTable columns={["Site", "Reference", "Location"]}>
           {client.sites.map((site) => (
-            <li key={site.id}>
-              <Link
-                href={`/sites/${site.id}`}
-                className="flex items-center gap-4 px-6 py-4"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{site.name}</span>
-                  <span className="mt-1 block truncate text-sm text-muted">
-                    {site.reference ?? "—"}
-                    {" · "}
-                    {site.address.city}
-                    {" · "}
-                    {site.address.postcode}
-                  </span>
-                </span>
-              </Link>
-            </li>
+            <tr key={site.id} className="hover:bg-gray-50">
+              <td className="px-5 py-4">
+                <Link
+                  href={`/sites/${site.id}`}
+                  className="text-sm font-medium text-gray-800"
+                >
+                  {site.name}
+                </Link>
+              </td>
+              <td className="px-5 py-4 text-sm text-gray-500">{site.reference ?? "—"}</td>
+              <td className="px-5 py-4 text-sm text-gray-500">
+                {site.address.city}
+                {" · "}
+                {site.address.postcode}
+              </td>
+            </tr>
           ))}
-        </ul>
+        </DataTable>
       ) : null}
       {adding ? (
         client.contacts.length === 0 ? (

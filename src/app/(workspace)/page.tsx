@@ -7,6 +7,6 @@ export default async function HomePage() {
   const label = session?.user.name || session?.user.email;
 
   return label ? (
-    <h1 className="text-4xl font-medium tracking-tight">{label}</h1>
+    <h1 className="text-2xl font-semibold text-gray-800">{label}</h1>
   ) : null;
 }

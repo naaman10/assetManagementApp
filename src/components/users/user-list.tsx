@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { Forbidden } from "@/components/forbidden";
-import { PageHeading, primaryButtonClassName } from "@/components/form-controls";
+import {
+  Badge,
+  DataTable,
+  PageHeading,
+  primaryButtonClassName,
+} from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
 import { asApiError, useApi } from "@/lib/api-client";
 import { parseUserList, type User } from "@/lib/directory";
@@ -33,14 +38,14 @@ export function UserList() {
           ) : null
         }
       />
-      {loading ? <p className="mt-8 text-sm text-muted">Loading users…</p> : null}
+      {loading ? <p className="mt-6 text-sm text-gray-500">Loading users…</p> : null}
       {error ? (
         error.status === 403 ? (
           <div className="mt-8">
             <Forbidden message={error.message} />
           </div>
         ) : (
-          <p className="mt-8 text-sm leading-6 text-ink" role="alert">
+          <p className="mt-6 text-sm text-error-600" role="alert">
             {asApiError(error).message}
           </p>
         )
@@ -52,35 +57,34 @@ export function UserList() {
 
 function UserRows({ users }: { users: User[] }) {
   if (users.length === 0) {
-    return <p className="mt-8 text-sm text-muted">No users yet.</p>;
+    return <p className="mt-6 text-sm text-gray-500">No users yet.</p>;
   }
 
   return (
-    <ul className="mt-8 divide-y divide-line overflow-hidden rounded-card bg-surface shadow-card">
+    <DataTable columns={["Email", "Name", "Roles", "Status"]}>
       {users.map((user) => (
-        <li key={user.id}>
-          <Link
-            href={`/settings/users/${user.id}`}
-            className="flex items-center justify-between gap-4 px-6 py-4"
-          >
-            <span className="min-w-0">
-              <span className="block truncate font-medium">{user.email}</span>
-              <span className="mt-1 block truncate text-sm text-muted">
-                {user.name || "No name"}
-                {" · "}
-                {user.roles.length > 0
-                  ? user.roles.map((role) => role.name).join(", ")
-                  : "No roles"}
-              </span>
-            </span>
-            {user.disabled ? (
-              <span className="shrink-0 rounded-full bg-surface-warm px-3 py-1 text-sm">
-                Disabled
-              </span>
-            ) : null}
-          </Link>
-        </li>
+        <tr key={user.id} className="hover:bg-gray-50">
+          <td className="px-5 py-4">
+            <Link
+              href={`/settings/users/${user.id}`}
+              className="text-sm font-medium text-gray-800"
+            >
+              {user.email}
+            </Link>
+          </td>
+          <td className="px-5 py-4 text-sm text-gray-500">{user.name || "No name"}</td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {user.roles.length > 0
+              ? user.roles.map((role) => role.name).join(", ")
+              : "No roles"}
+          </td>
+          <td className="px-5 py-4">
+            <Badge tone={user.disabled ? "error" : "success"}>
+              {user.disabled ? "Disabled" : "Active"}
+            </Badge>
+          </td>
+        </tr>
       ))}
-    </ul>
+    </DataTable>
   );
 }

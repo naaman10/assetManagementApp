@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
-import { PageHeading } from "@/components/form-controls";
+import { DataTable, PageHeading } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
 import {
   apiRequest,
@@ -79,14 +79,14 @@ export function SiteList() {
   return (
     <section>
       <PageHeading title="Sites" />
-      {loading ? <p className="mt-8 text-sm text-muted">Loading sites…</p> : null}
+      {loading ? <p className="mt-6 text-sm text-gray-500">Loading sites…</p> : null}
       {error ? (
         error.status === 403 ? (
           <div className="mt-8">
             <Forbidden message={error.message} />
           </div>
         ) : (
-          <p className="mt-8 text-sm leading-6 text-ink" role="alert">
+          <p className="mt-6 text-sm text-error-600" role="alert">
             {error.message}
           </p>
         )
@@ -123,36 +123,34 @@ function SiteRows({
   onReload: (clientId: string) => Promise<string | null>;
 }) {
   if (sites.length === 0) {
-    return <p className="mt-8 text-sm text-muted">No sites yet.</p>;
+    return <p className="mt-6 text-sm text-gray-500">No sites yet.</p>;
   }
 
   return (
-    <ul className="mt-8 divide-y divide-line overflow-hidden rounded-card bg-surface shadow-card">
+    <DataTable columns={["Site", "Reference", "Client", "Location"]}>
       {sites.map((site) => (
-        <li key={site.id}>
-          <Link href={`/sites/${site.id}`} className="flex items-center gap-4 px-6 py-4">
-            <ClientLogo
-              name={site.client.name}
-              logoUrl={site.client.logoUrl}
-              size="list"
-              onReload={() => onReload(site.client.id)}
-            />
-            <span className="min-w-0">
-              <span className="block truncate font-medium">{site.name}</span>
-              <span className="mt-1 block truncate text-sm text-muted">
-                {site.reference ?? "—"}
-                {" · "}
-                {site.client.name}
-                {" · "}
-                {site.address.city}
-                {" · "}
-                {site.address.postcode}
-              </span>
-            </span>
-          </Link>
-        </li>
+        <tr key={site.id} className="hover:bg-gray-50">
+          <td className="px-5 py-4">
+            <Link href={`/sites/${site.id}`} className="flex items-center gap-3">
+              <ClientLogo
+                name={site.client.name}
+                logoUrl={site.client.logoUrl}
+                size="list"
+                onReload={() => onReload(site.client.id)}
+              />
+              <span className="truncate text-sm font-medium text-gray-800">{site.name}</span>
+            </Link>
+          </td>
+          <td className="px-5 py-4 text-sm text-gray-500">{site.reference ?? "—"}</td>
+          <td className="px-5 py-4 text-sm text-gray-500">{site.client.name}</td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {site.address.city}
+            {" · "}
+            {site.address.postcode}
+          </td>
+        </tr>
       ))}
-    </ul>
+    </DataTable>
   );
 }
 

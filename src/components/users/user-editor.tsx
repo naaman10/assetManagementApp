@@ -76,7 +76,7 @@ export function UserEditor({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid max-w-xl gap-8">
+    <div className="grid max-w-3xl gap-8">
       {canEdit ? (
         <UserForm
           user={account}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
-import { PageHeading, primaryButtonClassName } from "@/components/form-controls";
+import { DataTable, PageHeading, primaryButtonClassName } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
 import { apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody, parseClientList, type Client } from "@/lib/clients";
@@ -51,7 +51,7 @@ export function ClientList() {
         }
       />
       {request.loading ? (
-        <p className="mt-8 text-sm text-muted">Loading clients…</p>
+        <p className="mt-6 text-sm text-gray-500">Loading clients…</p>
       ) : null}
       {request.error ? (
         request.error.status === 403 ? (
@@ -59,7 +59,7 @@ export function ClientList() {
             <Forbidden message={request.error.message} />
           </div>
         ) : (
-          <p className="mt-8 text-sm leading-6 text-ink" role="alert">
+          <p className="mt-6 text-sm text-error-600" role="alert">
             {asApiError(request.error).message}
           </p>
         )
@@ -95,36 +95,34 @@ function ClientRows({
   onReload: (clientId: string) => Promise<string | null>;
 }) {
   if (clients.length === 0) {
-    return <p className="mt-8 text-sm text-muted">No clients yet.</p>;
+    return <p className="mt-6 text-sm text-gray-500">No clients yet.</p>;
   }
 
   return (
-    <ul className="mt-8 divide-y divide-line overflow-hidden rounded-card bg-surface shadow-card">
+    <DataTable columns={["Client", "Reference", "Location"]}>
       {clients.map((client) => (
-        <li key={client.id}>
-          <Link
-            href={`/clients/${client.id}`}
-            className="flex items-center gap-4 px-6 py-4"
-          >
-            <ClientLogo
-              name={client.name}
-              logoUrl={client.logoUrl}
-              size="list"
-              onReload={() => onReload(client.id)}
-            />
-            <span className="min-w-0">
-              <span className="block truncate font-medium">{client.name}</span>
-              <span className="mt-1 block truncate text-sm text-muted">
-                {client.reference ?? "—"}
-                {" · "}
-                {client.address.city}
-                {" · "}
-                {client.address.postcode}
+        <tr key={client.id} className="hover:bg-gray-50">
+          <td className="px-5 py-4">
+            <Link href={`/clients/${client.id}`} className="flex items-center gap-3">
+              <ClientLogo
+                name={client.name}
+                logoUrl={client.logoUrl}
+                size="list"
+                onReload={() => onReload(client.id)}
+              />
+              <span className="truncate text-sm font-medium text-gray-800">
+                {client.name}
               </span>
-            </span>
-          </Link>
-        </li>
+            </Link>
+          </td>
+          <td className="px-5 py-4 text-sm text-gray-500">{client.reference ?? "—"}</td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {client.address.city}
+            {" · "}
+            {client.address.postcode}
+          </td>
+        </tr>
       ))}
-    </ul>
+    </DataTable>
   );
 }

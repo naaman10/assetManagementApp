@@ -20,27 +20,14 @@ export default async function SignInPage({
   const returnTo = safeReturnPath(requested);
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      <section className="flex flex-1 flex-col gap-12 px-8 py-10 sm:px-12 lg:justify-center lg:gap-16 lg:px-20">
+    <div className="flex min-h-dvh items-center justify-center px-4 py-12">
+      <section className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-theme-xs sm:p-8">
         <Logo />
-        <div className="max-w-md">
-          <h1 className="text-4xl font-medium tracking-tight">
-            Joe&apos;s Asset Management
-          </h1>
-          <p className="mt-4 text-lg leading-7 text-muted">
-            A workspace for the equipment and property your organisation looks
-            after. Sign in to see what you own, who holds it, and where it is.
-          </p>
-        </div>
-      </section>
-      <section className="flex flex-1 items-center bg-surface px-8 py-12 sm:px-12 lg:px-16">
-        <div className="mx-auto w-full max-w-sm">
-          <h2 className="text-3xl font-medium tracking-tight">Sign in</h2>
-          <p className="mt-3 text-[15px] leading-6 text-muted">
-            Use the account your organisation gave you.
-          </p>
-          <SignInForm returnTo={returnTo} />
-        </div>
+        <h1 className="mt-8 text-2xl font-semibold text-gray-800">Sign in</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Use the account your organisation gave you.
+        </p>
+        <SignInForm returnTo={returnTo} />
       </section>
     </div>
   );

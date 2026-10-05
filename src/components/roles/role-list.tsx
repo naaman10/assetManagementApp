@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Forbidden } from "@/components/forbidden";
-import { PageHeading, primaryButtonClassName } from "@/components/form-controls";
+import { DataTable, PageHeading, primaryButtonClassName } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
 import { useApi } from "@/lib/api-client";
 import { parseRoleList, type Role } from "@/lib/directory";
@@ -33,14 +33,14 @@ export function RoleList() {
           ) : null
         }
       />
-      {loading ? <p className="mt-8 text-sm text-muted">Loading roles…</p> : null}
+      {loading ? <p className="mt-6 text-sm text-gray-500">Loading roles…</p> : null}
       {error ? (
         error.status === 403 ? (
           <div className="mt-8">
             <Forbidden message={error.message} />
           </div>
         ) : (
-          <p className="mt-8 text-sm leading-6 text-ink" role="alert">
+          <p className="mt-6 text-sm text-error-600" role="alert">
             {error.message}
           </p>
         )
@@ -52,28 +52,31 @@ export function RoleList() {
 
 function RoleRows({ roles }: { roles: Role[] }) {
   if (roles.length === 0) {
-    return <p className="mt-8 text-sm text-muted">No roles yet.</p>;
+    return <p className="mt-6 text-sm text-gray-500">No roles yet.</p>;
   }
 
   return (
-    <ul className="mt-8 divide-y divide-line overflow-hidden rounded-card bg-surface shadow-card">
+    <DataTable columns={["Role", "Description", "Permissions"]}>
       {roles.map((role) => (
-        <li key={role.id}>
-          <Link
-            href={`/settings/roles/${role.id}`}
-            className="block px-6 py-4"
-          >
-            <span className="block font-medium">{role.name}</span>
-            <span className="mt-1 block text-sm text-muted">
-              {role.description || "No description"}
-              {" · "}
-              {role.permissions.length > 0
-                ? role.permissions.map((permission) => permission.name).join(", ")
-                : "No permissions"}
-            </span>
-          </Link>
-        </li>
+        <tr key={role.id} className="hover:bg-gray-50">
+          <td className="px-5 py-4">
+            <Link
+              href={`/settings/roles/${role.id}`}
+              className="text-sm font-medium text-gray-800"
+            >
+              {role.name}
+            </Link>
+          </td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {role.description || "No description"}
+          </td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {role.permissions.length > 0
+              ? role.permissions.map((permission) => permission.name).join(", ")
+              : "No permissions"}
+          </td>
+        </tr>
       ))}
-    </ul>
+    </DataTable>
   );
 }

@@ -99,7 +99,7 @@ export function ClientForm({
   const fieldErrors = error?.fieldErrors ?? {};
 
   return (
-    <section className="max-w-xl">
+    <section className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs sm:p-6">
       <PageHeading
         title={creating ? "Create client" : "Edit client"}
         action={

@@ -89,8 +89,8 @@ export function SiteDetailView({ id }: { id: string }) {
               />
               <span className="font-medium">{site.client.name}</span>
             </Link>
-            <p className="mt-6 text-sm text-muted">Site</p>
-            <h1 className="mt-1 text-4xl font-medium tracking-tight">{site.name}</h1>
+            <p className="mt-6 text-sm text-gray-500">Site</p>
+            <h1 className="mt-1 text-2xl font-semibold text-gray-800">{site.name}</h1>
             <p className="mt-3 text-sm text-muted">Reference</p>
             <p className="mt-1 text-sm font-medium">{site.reference ?? "—"}</p>
             <p className="mt-3 text-sm leading-6 whitespace-pre-line">
@@ -141,7 +141,7 @@ function SiteContact({ contact }: { contact: Contact }) {
               href={email}
               aria-label={`Email ${contact.name}`}
               title={contact.email ?? undefined}
-              className="flex size-10 items-center justify-center rounded-full border border-line"
+              className="flex size-10 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
             >
               <MailIcon />
             </a>
@@ -151,7 +151,7 @@ function SiteContact({ contact }: { contact: Contact }) {
               href={telephone}
               aria-label={`Call ${contact.name}`}
               title={contact.telephone ?? undefined}
-              className="flex size-10 items-center justify-center rounded-full border border-line"
+              className="flex size-10 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
             >
               <PhoneIcon />
             </a>

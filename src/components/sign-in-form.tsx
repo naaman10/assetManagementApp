@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { inputClassName, primaryButtonClassName } from "@/components/form-controls";
 import { safeReturnPath } from "@/lib/return-path";
 
 export function SignInForm({ returnTo }: { returnTo: string }) {
@@ -45,41 +46,48 @@ export function SignInForm({ returnTo }: { returnTo: string }) {
   }
 
   return (
-    <form method="post" onSubmit={onSubmit} className="mt-8">
-      <label className="block text-sm font-medium" htmlFor="email">
-        Email
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        required
-        disabled={pending}
-        className="mt-2 h-12 w-full rounded-full border border-line bg-surface px-4 text-sm"
-      />
-      <label className="mt-4 block text-sm font-medium" htmlFor="password">
-        Password
-      </label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-        maxLength={128}
-        disabled={pending}
-        className="mt-2 h-12 w-full rounded-full border border-line bg-surface px-4 text-sm"
-      />
+    <form method="post" onSubmit={onSubmit} className="mt-6 grid gap-5">
+      <div>
+        <label className="block text-sm font-medium text-gray-700" htmlFor="email">
+          Email
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          disabled={pending}
+          className={inputClassName}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700" htmlFor="password">
+          Password
+        </label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          maxLength={128}
+          disabled={pending}
+          className={inputClassName}
+        />
+      </div>
       {error ? (
-        <p className="mt-4 text-sm leading-6 text-ink" role="alert">
+        <p
+          className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={pending}
-        className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-accent text-sm font-medium text-accent-foreground disabled:opacity-60"
+        className={`${primaryButtonClassName} w-full`}
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>
