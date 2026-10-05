@@ -73,7 +73,7 @@ export function SiteDetailView({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid max-w-3xl gap-8">
+    <div className="grid gap-8">
       <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0">
@@ -91,6 +91,8 @@ export function SiteDetailView({ id }: { id: string }) {
             </Link>
             <p className="mt-6 text-sm text-muted">Site</p>
             <h1 className="mt-1 text-4xl font-medium tracking-tight">{site.name}</h1>
+            <p className="mt-3 text-sm text-muted">Reference</p>
+            <p className="mt-1 text-sm font-medium">{site.reference ?? "—"}</p>
             <p className="mt-3 text-sm leading-6 whitespace-pre-line">
               {formatAddress(site.address)}
             </p>

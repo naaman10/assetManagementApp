@@ -19,13 +19,35 @@ export type Contact = {
   updatedAt: string;
 };
 
+export type ClientLead = {
+  id: string;
+  name: string;
+  role: string | null;
+  email: string | null;
+  telephone: string | null;
+};
+
+export type SettingsUser = {
+  id: string;
+  email: string;
+  name: string | null;
+};
+
+export type ClientSettings = {
+  leadContact: ClientLead | null;
+  sponsor: SettingsUser | null;
+  members: SettingsUser[];
+};
+
 export type Client = {
   id: string;
   name: string;
+  reference: string | null;
   logoUrl: string | null;
   address: Address;
   contacts: Contact[];
   sites: Site[];
+  settings: ClientSettings;
   createdAt: string;
   updatedAt: string;
 };
@@ -113,14 +135,62 @@ function parseClient(value: unknown): Client {
   return {
     id: requiredString(record, "id"),
     name: requiredString(record, "name"),
+    reference: optionalString(record, "reference"),
     logoUrl: optionalString(record, "logoUrl"),
     address: parseAddress(record.address),
     contacts: Array.isArray(record.contacts)
       ? record.contacts.map(parseContact)
       : [],
     sites: Array.isArray(record.sites) ? record.sites.map(parseSite) : [],
+    settings: parseSettings(record.settings),
     createdAt: optionalString(record, "createdAt") ?? "",
     updatedAt: optionalString(record, "updatedAt") ?? "",
+  };
+}
+
+function parseSettings(value: unknown): ClientSettings {
+  if (value == null) {
+    return { leadContact: null, sponsor: null, members: [] };
+  }
+
+  if (Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  const record = objectRecord(value, "settings");
+  const members = record.members;
+
+  if (members != null && !Array.isArray(members)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return {
+    leadContact:
+      record.leadContact == null ? null : parseClientLead(record.leadContact),
+    sponsor: record.sponsor == null ? null : parseSettingsUser(record.sponsor),
+    members: Array.isArray(members) ? members.map(parseSettingsUser) : [],
+  };
+}
+
+function parseClientLead(value: unknown): ClientLead {
+  const record = objectRecord(value, "contact");
+
+  return {
+    id: requiredString(record, "id"),
+    name: requiredString(record, "name"),
+    role: optionalString(record, "role"),
+    email: optionalString(record, "email"),
+    telephone: optionalString(record, "telephone"),
+  };
+}
+
+function parseSettingsUser(value: unknown): SettingsUser {
+  const record = objectRecord(value, "user");
+
+  return {
+    id: requiredString(record, "id"),
+    email: requiredString(record, "email"),
+    name: optionalString(record, "name"),
   };
 }
 

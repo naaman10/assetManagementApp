@@ -115,6 +115,8 @@ function ClientRows({
             <span className="min-w-0">
               <span className="block truncate font-medium">{client.name}</span>
               <span className="mt-1 block truncate text-sm text-muted">
+                {client.reference ?? "—"}
+                {" · "}
                 {client.address.city}
                 {" · "}
                 {client.address.postcode}

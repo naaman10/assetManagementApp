@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientContacts } from "@/components/clients/client-contacts";
 import { ClientLogo } from "@/components/clients/client-logo";
+import { ClientSettings } from "@/components/clients/client-settings";
 import { ClientSites } from "@/components/clients/client-sites";
 import { Forbidden } from "@/components/forbidden";
 import { secondaryButtonClassName } from "@/components/form-controls";
@@ -23,6 +24,7 @@ const tabs = [
   { id: "audits", label: "Audits", empty: "No audits yet." },
   { id: "reports", label: "Reports", empty: "No reports yet." },
   { id: "contacts", label: "Contacts", empty: "" },
+  { id: "settings", label: "Settings", empty: "" },
 ] as const;
 
 type ClientTab = (typeof tabs)[number]["id"];
@@ -86,7 +88,7 @@ export function ClientEditor({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid max-w-3xl gap-8">
+    <div className="grid gap-8">
       <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex min-w-0 flex-wrap items-center gap-6">
@@ -99,6 +101,8 @@ export function ClientEditor({ id }: { id: string }) {
             <div className="min-w-0">
               <p className="text-sm text-muted">Client</p>
               <h1 className="mt-1 text-4xl font-medium tracking-tight">{client.name}</h1>
+              <p className="mt-3 text-sm text-muted">Reference</p>
+              <p className="mt-1 text-sm font-medium">{client.reference ?? "—"}</p>
               <p className="mt-3 text-sm leading-6 whitespace-pre-line">
                 {formatAddress(client.address)}
               </p>
@@ -155,6 +159,18 @@ export function ClientEditor({ id }: { id: string }) {
                 onClient={setSaved}
                 onMissing={() => {
                   router.replace("/clients");
+                }}
+              />
+            ) : item.id === "settings" ? (
+              <ClientSettings
+                client={client}
+                canEdit={canEdit}
+                onClient={setSaved}
+                onMissing={() => {
+                  router.replace("/clients");
+                }}
+                onShowContacts={() => {
+                  setTab("contacts");
                 }}
               />
             ) : item.id === "sites" ? (

@@ -17,6 +17,7 @@ export type SiteClient = {
 export type Site = {
   id: string;
   name: string;
+  reference: string | null;
   address: Address;
   contact: SiteContact;
   createdAt: string;
@@ -33,6 +34,7 @@ export function parseSite(value: unknown): Site {
   return {
     id: requiredString(record, "id"),
     name: requiredString(record, "name"),
+    reference: optionalString(record, "reference"),
     address: parseAddress(record.address),
     contact: parseSiteContact(record.contact),
     createdAt: optionalString(record, "createdAt") ?? "",

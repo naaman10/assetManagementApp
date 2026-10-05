@@ -140,6 +140,8 @@ function SiteRows({
             <span className="min-w-0">
               <span className="block truncate font-medium">{site.name}</span>
               <span className="mt-1 block truncate text-sm text-muted">
+                {site.reference ?? "—"}
+                {" · "}
                 {site.client.name}
                 {" · "}
                 {site.address.city}

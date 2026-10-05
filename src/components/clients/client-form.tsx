@@ -39,6 +39,7 @@ export function ClientForm({
   const router = useRouter();
   const creating = !client;
   const [name, setName] = useState(client?.name ?? "");
+  const [reference, setReference] = useState(client?.reference ?? "");
   const [line1, setLine1] = useState(client?.address.line1 ?? "");
   const [line2, setLine2] = useState(client?.address.line2 ?? "");
   const [city, setCity] = useState(client?.address.city ?? "");
@@ -51,7 +52,7 @@ export function ClientForm({
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const draft = { name, line1, line2, city, county, postcode, country };
+    const draft = { name, reference, line1, line2, city, county, postcode, country };
     const payload = client
       ? updatePayload(client, draft)
       : createBody(draft, contacts);
@@ -81,6 +82,7 @@ export function ClientForm({
 
       onSaved?.(saved);
       setName(saved.name);
+      setReference(saved.reference ?? "");
       setLine1(saved.address.line1);
       setLine2(saved.address.line2 ?? "");
       setCity(saved.address.city);
@@ -131,6 +133,20 @@ export function ClientForm({
             setName(event.target.value);
           }}
         />
+        {client ? (
+          <TextField
+            id="client-reference"
+            name="reference"
+            label="Reference"
+            maxLength={200}
+            value={reference}
+            disabled={pending}
+            messages={fieldErrors.reference}
+            onChange={(event) => {
+              setReference(event.target.value);
+            }}
+          />
+        ) : null}
         <AddressFields
           line1={line1}
           line2={line2}
@@ -470,6 +486,7 @@ function updatePayload(
   client: Client,
   draft: {
     name: string;
+    reference: string;
     line1: string;
     line2: string;
     city: string;
@@ -478,11 +495,20 @@ function updatePayload(
     country: string;
   },
 ) {
-  const payload: { name?: string; address?: Record<string, string | null> } = {};
+  const payload: {
+    name?: string;
+    reference?: string | null;
+    address?: Record<string, string | null>;
+  } = {};
   const name = draft.name.trim();
+  const reference = emptyToNull(draft.reference);
 
   if (name !== client.name) {
     payload.name = name;
+  }
+
+  if (reference !== client.reference) {
+    payload.reference = reference;
   }
 
   const address = changedAddress(client.address, draft);
@@ -491,7 +517,11 @@ function updatePayload(
     payload.address = address;
   }
 
-  return payload.name !== undefined || payload.address ? payload : null;
+  return payload.name !== undefined ||
+    payload.reference !== undefined ||
+    payload.address
+    ? payload
+    : null;
 }
 
 function changedAddress(

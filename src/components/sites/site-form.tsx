@@ -22,6 +22,7 @@ type ContactOption = {
 
 type SiteDraft = {
   name: string;
+  reference: string;
   line1: string;
   line2: string;
   city: string;
@@ -53,6 +54,7 @@ export function SiteForm({
   const creating = !site;
   const options = contactOptions(contacts, site);
   const [name, setName] = useState(site?.name ?? "");
+  const [reference, setReference] = useState(site?.reference ?? "");
   const [line1, setLine1] = useState(site?.address.line1 ?? "");
   const [line2, setLine2] = useState(site?.address.line2 ?? "");
   const [city, setCity] = useState(site?.address.city ?? "");
@@ -66,7 +68,17 @@ export function SiteForm({
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const draft = { name, line1, line2, city, county, postcode, country, contactId };
+    const draft = {
+      name,
+      reference,
+      line1,
+      line2,
+      city,
+      county,
+      postcode,
+      country,
+      contactId,
+    };
 
     if (site) {
       const payload = updatePayload(site, draft);
@@ -148,6 +160,20 @@ export function SiteForm({
           setName(event.target.value);
         }}
       />
+      {site ? (
+        <TextField
+          id={`site-${site.id}-reference`}
+          name="reference"
+          label="Reference"
+          maxLength={200}
+          value={reference}
+          disabled={pending}
+          messages={fieldErrors.reference}
+          onChange={(event) => {
+            setReference(event.target.value);
+          }}
+        />
+      ) : null}
       <AddressFields
         line1={line1}
         line2={line2}
@@ -276,13 +302,19 @@ function createBody(draft: SiteDraft) {
 function updatePayload(site: Site, draft: SiteDraft) {
   const payload: {
     name?: string;
+    reference?: string | null;
     address?: Record<string, string | null>;
     contactId?: string;
   } = {};
   const name = draft.name.trim();
+  const reference = emptyToNull(draft.reference);
 
   if (name !== site.name) {
     payload.name = name;
+  }
+
+  if (reference !== site.reference) {
+    payload.reference = reference;
   }
 
   const address = changedAddress(site.address, draft);
@@ -295,7 +327,10 @@ function updatePayload(site: Site, draft: SiteDraft) {
     payload.contactId = draft.contactId;
   }
 
-  return payload.name !== undefined || payload.address || payload.contactId
+  return payload.name !== undefined ||
+    payload.reference !== undefined ||
+    payload.address ||
+    payload.contactId
     ? payload
     : null;
 }
