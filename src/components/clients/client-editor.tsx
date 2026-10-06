@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ClientAudits } from "@/components/audits/client-audits";
 import { ClientContacts } from "@/components/clients/client-contacts";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { ClientSettings } from "@/components/clients/client-settings";
@@ -191,6 +192,8 @@ export function ClientEditor({ id }: { id: string }) {
                   setTab("contacts");
                 }}
               />
+            ) : item.id === "audits" ? (
+              <ClientAudits clientId={client.id} />
             ) : (
               <p className="text-sm text-muted">{item.empty}</p>
             )}

@@ -92,6 +92,9 @@ export function AppHeader() {
               Sites
             </NavLink>
           ) : null}
+          <NavLink href="/audits" active={pathname.startsWith("/audits")} icon={<AuditsIcon />}>
+            Audits
+          </NavLink>
           {showAssetTypes ? (
             <NavLink
               href="/asset-types"
@@ -337,6 +340,20 @@ function SitesIcon() {
         strokeLinejoin="round"
       />
       <circle cx="10" cy="9" r="1.6" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function AuditsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <rect x="5" y="3.5" width="10" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M8 3.2h4a.8.8 0 0 1 .8.8v1.2H7.2V4a.8.8 0 0 1 .8-.8ZM7.5 9.5h5M7.5 12.5h3.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
