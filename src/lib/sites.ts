@@ -39,6 +39,49 @@ export type SiteDetail = Site & {
   locationCount: number;
 };
 
+export const ASSET_STATUSES = [
+  "active",
+  "inactive",
+  "out_of_service",
+  "decommissioned",
+  "disposed",
+  "proposed",
+  "under_installation",
+  "awaiting_commissioning",
+  "deleted",
+] as const;
+
+export type AssetStatus = (typeof ASSET_STATUSES)[number];
+
+export type AssetLocation = {
+  id: string;
+  siteId: string;
+  locationCode: string | null;
+  name: string | null;
+};
+
+export type AssetTypeSummary = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type Asset = {
+  id: string;
+  assetRef: string;
+  assetName: string | null;
+  quantity: number | null;
+  unitOfMeasure: string | null;
+  status: AssetStatus;
+  location: AssetLocation;
+  assetType: AssetTypeSummary;
+};
+
+export type AssetList = {
+  assetCount: number;
+  assets: Asset[];
+};
+
 export function parseSite(value: unknown): Site {
   const record = objectRecord(value, "site");
 
@@ -74,7 +117,36 @@ export function parseSiteDetail(data: unknown): SiteDetail {
     ...parseSite(record),
     client: parseSiteClient(record.client),
     locations,
-    locationCount: locationCount(record.locationCount, locations.length),
+    locationCount: readCount(record.locationCount, locations.length),
+  };
+}
+
+export function parseAssetList(data: unknown): AssetList {
+  const record = objectRecord(data, "asset list");
+  const assets = parseAssets(record.assets);
+
+  return {
+    assetCount: readCount(record.assetCount, assets.length),
+    assets,
+  };
+}
+
+export function parseAssetBody(data: unknown): Asset {
+  if (!data || typeof data !== "object" || !("asset" in data)) {
+    throw new Error("The response was missing an asset.");
+  }
+
+  return parseAsset(data.asset);
+}
+
+export function includeAsset(list: AssetList, asset: Asset): AssetList {
+  if (list.assets.some((item) => item.id === asset.id)) {
+    return list;
+  }
+
+  return {
+    assetCount: list.assetCount + 1,
+    assets: [...list.assets, asset],
   };
 }
 
@@ -103,7 +175,83 @@ function parseLocation(value: unknown): SiteLocation {
   };
 }
 
-function locationCount(value: unknown, fallback: number): number {
+function parseAssets(value: unknown): Asset[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map(parseAsset);
+}
+
+function parseAsset(value: unknown): Asset {
+  const record = objectRecord(value, "asset");
+
+  return {
+    id: requiredString(record, "id"),
+    assetRef: requiredString(record, "assetRef"),
+    assetName: optionalString(record, "assetName"),
+    quantity: optionalNumber(record, "quantity"),
+    unitOfMeasure: optionalString(record, "unitOfMeasure"),
+    status: parseAssetStatus(record.status),
+    location: parseAssetLocation(record.location),
+    assetType: parseAssetTypeSummary(record.assetType),
+  };
+}
+
+function parseAssetLocation(value: unknown): AssetLocation {
+  const record = objectRecord(value, "location");
+
+  return {
+    id: requiredString(record, "id"),
+    siteId: requiredString(record, "siteId"),
+    locationCode: optionalString(record, "locationCode"),
+    name: optionalString(record, "name"),
+  };
+}
+
+function parseAssetTypeSummary(value: unknown): AssetTypeSummary {
+  const record = objectRecord(value, "asset type");
+
+  return {
+    id: requiredString(record, "id"),
+    code: requiredString(record, "code"),
+    name: requiredString(record, "name"),
+  };
+}
+
+function parseAssetStatus(value: unknown): AssetStatus {
+  if (
+    typeof value === "string" &&
+    (ASSET_STATUSES as readonly string[]).includes(value)
+  ) {
+    return value as AssetStatus;
+  }
+
+  throw new Error("The response could not be read.");
+}
+
+function optionalNumber(
+  record: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = record[key];
+
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  throw new Error("The response could not be read.");
+}
+
+function readCount(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 

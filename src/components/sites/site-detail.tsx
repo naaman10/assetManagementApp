@@ -3,6 +3,8 @@
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AssetForm } from "@/components/assets/asset-form";
+import { AssetTable } from "@/components/assets/asset-table";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
 import {
@@ -18,10 +20,15 @@ import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-clien
 import { parseClientBody, type Address } from "@/lib/clients";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 import {
+  includeAsset,
+  parseAssetList,
   parseLocationBody,
   parseSiteDetail,
+  type AssetList,
   type SiteContact as Contact,
   type SiteDetail,
+  type SiteLocation,
+  type Asset,
 } from "@/lib/sites";
 
 const tabs = [
@@ -37,12 +44,22 @@ export function SiteDetailView({ id }: { id: string }) {
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const request = useApi(canView ? `/api/sites/${id}` : null, parseSiteDetail);
+  const assetsRequest = useApi(canView ? `/api/sites/${id}/assets` : null, parseAssetList);
   const [saved, setSaved] = useState<SiteDetail | null>(null);
+  const [savedAssets, setSavedAssets] = useState<AssetList | null>(null);
+  const [assetsForSite, setAssetsForSite] = useState(id);
   const [tab, setTab] = useState<SiteTab>("locations");
   const [tabForSite, setTabForSite] = useState(id);
   const tablistId = useId();
   const missing = request.error?.status === 404;
+  const assetsMissing = assetsRequest.error?.status === 404;
   const site = saved?.id === request.data?.id ? saved : request.data;
+  const assetList =
+    assetsForSite === id && savedAssets
+      ? savedAssets
+      : assetsMissing
+        ? { assetCount: 0, assets: [] }
+        : assetsRequest.data;
 
   useEffect(() => {
     if (missing) {
@@ -54,7 +71,11 @@ export function SiteDetailView({ id }: { id: string }) {
     return <Forbidden />;
   }
 
-  if (request.loading) {
+  if (missing) {
+    return null;
+  }
+
+  if (request.loading || (!assetsMissing && assetsRequest.loading)) {
     return <p className="text-sm text-muted">Loading site…</p>;
   }
 
@@ -70,13 +91,23 @@ export function SiteDetailView({ id }: { id: string }) {
     );
   }
 
-  if (!site) {
+  if (assetsRequest.error && !assetsMissing) {
+    return (
+      <p className="text-sm leading-6 text-ink" role="alert">
+        {assetsRequest.error.message}
+      </p>
+    );
+  }
+
+  if (!site || !assetList) {
     return null;
   }
 
-  if (tabForSite !== id) {
+  if (tabForSite !== id || assetsForSite !== id) {
     setTabForSite(id);
+    setAssetsForSite(id);
     setTab("locations");
+    setSavedAssets(null);
   }
 
   const loaded = site;
@@ -161,9 +192,9 @@ export function SiteDetailView({ id }: { id: string }) {
                 }`}
               >
                 {item.label}
-                {item.id === "locations" ? (
-                  <span className="ml-2 font-medium text-gray-500">{site.locationCount}</span>
-                ) : null}
+                <span className="ml-2 font-medium text-gray-500">
+                  {item.id === "locations" ? site.locationCount : assetList.assetCount}
+                </span>
               </button>
             );
           })}
@@ -188,12 +219,111 @@ export function SiteDetailView({ id }: { id: string }) {
                 }}
               />
             ) : (
-              <p className="text-sm text-gray-500">No assets yet.</p>
+              <SiteAssets
+                siteId={site.id}
+                locations={site.locations}
+                assets={assetList}
+                canEdit={canEdit}
+                onAssets={setSavedAssets}
+                onShowLocations={() => {
+                  setTab("locations");
+                }}
+              />
             )}
           </div>
         ))}
       </section>
     </div>
+  );
+}
+
+function SiteAssets({
+  siteId,
+  locations,
+  assets,
+  canEdit,
+  onAssets,
+  onShowLocations,
+}: {
+  siteId: string;
+  locations: SiteLocation[];
+  assets: AssetList;
+  canEdit: boolean;
+  onAssets: (assets: AssetList) => void;
+  onShowLocations: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [openForSite, setOpenForSite] = useState(siteId);
+
+  if (openForSite !== siteId) {
+    setOpenForSite(siteId);
+    setAdding(false);
+  }
+
+  async function created(asset: Asset) {
+    setAdding(false);
+
+    try {
+      const list = parseAssetList(await apiRequest(`/api/sites/${siteId}/assets`));
+      onAssets(includeAsset(list, asset));
+    } catch {
+      onAssets(includeAsset(assets, asset));
+    }
+  }
+
+  return (
+    <section>
+      {canEdit && !adding ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            onClick={() => {
+              setAdding(true);
+            }}
+          >
+            Add asset
+          </button>
+        </div>
+      ) : null}
+      {assets.assets.length === 0 && !adding ? (
+        <p className="text-sm text-gray-500">No assets yet.</p>
+      ) : assets.assets.length > 0 ? (
+        <AssetTable assets={assets.assets} includeLocation />
+      ) : null}
+      {adding ? (
+        locations.length === 0 ? (
+          <div className="mt-4 grid gap-4 rounded-card bg-surface p-5 shadow-card">
+            <p className="text-sm leading-6">
+              A location is required to add an asset. Add one from the{" "}
+              <button
+                type="button"
+                className="font-medium underline"
+                onClick={onShowLocations}
+              >
+                Locations tab
+              </button>
+              .
+            </p>
+            <button type="button" className={secondaryButtonClassName} onClick={() => setAdding(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+            <AssetForm
+              locations={locations}
+              onCancel={() => {
+                setAdding(false);
+              }}
+              onCreated={(asset) => {
+                void created(asset);
+              }}
+            />
+          </div>
+        )
+      ) : null}
+    </section>
   );
 }
 
@@ -239,8 +369,13 @@ function Locations({
         <DataTable columns={["Name", "Location code"]}>
           {locations.map((location) => (
             <tr key={location.id} className="hover:bg-gray-50">
-              <td className="px-5 py-4 text-sm font-medium text-gray-800">
-                {location.name ?? "—"}
+              <td className="px-5 py-4">
+                <Link
+                  href={`/locations/${location.id}`}
+                  className="text-sm font-medium text-gray-800"
+                >
+                  {locationLinkText(location)}
+                </Link>
               </td>
               <td className="px-5 py-4 text-sm text-gray-500">
                 {location.locationCode ?? "—"}
@@ -376,6 +511,10 @@ function locationPayload(name: string, locationCode: string): Record<string, str
   }
 
   return Object.keys(payload).length > 0 ? payload : null;
+}
+
+function locationLinkText(location: SiteLocation): string {
+  return location.name ?? location.locationCode ?? "Location";
 }
 
 function formatAddress(address: Address): string {
