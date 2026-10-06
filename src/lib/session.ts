@@ -29,6 +29,8 @@ export const CLIENTS_VIEW = "clients:view";
 export const CLIENTS_CREATE = "clients:create";
 export const CLIENTS_EDIT = "clients:edit";
 export const CLIENTS_DELETE = "clients:delete";
+export const ASSET_TYPES_VIEW = "assetType:view";
+export const ASSET_TYPES_EDIT = "assetType:edit";
 export const ADMIN_ROLE = "admin";
 
 export const USER_AREA_PERMISSIONS = [

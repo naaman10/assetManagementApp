@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { useSession } from "@/components/session-provider";
 import {
+  ASSET_TYPES_VIEW,
   CLIENTS_VIEW,
   hasAnyPermission,
   hasPermission,
@@ -25,6 +26,7 @@ export function AppHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openOnPath, setOpenOnPath] = useState(pathname);
   const showClients = hasPermission(user, CLIENTS_VIEW);
+  const showAssetTypes = hasPermission(user, ASSET_TYPES_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
@@ -88,6 +90,15 @@ export function AppHeader() {
           {showClients ? (
             <NavLink href="/sites" active={pathname.startsWith("/sites")} icon={<SitesIcon />}>
               Sites
+            </NavLink>
+          ) : null}
+          {showAssetTypes ? (
+            <NavLink
+              href="/asset-types"
+              active={pathname.startsWith("/asset-types")}
+              icon={<AssetTypesIcon />}
+            >
+              Asset types
             </NavLink>
           ) : null}
           {showUsers || showRoles ? (
@@ -301,6 +312,17 @@ function ClientsIcon() {
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function AssetTypesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11.5" y="3.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="3.5" y="11.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="11.5" y="11.5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }
