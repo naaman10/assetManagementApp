@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AssetForm } from "@/components/assets/asset-form";
 import { AssetTable } from "@/components/assets/asset-table";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
 import { secondaryButtonClassName } from "@/components/form-controls";
 import { useSession } from "@/components/session-provider";
@@ -14,6 +15,7 @@ import {
   includeAsset,
   parseAssetList,
   parseLocationBody,
+  parseSiteSummary,
   type AssetList,
 } from "@/lib/sites";
 
@@ -25,6 +27,12 @@ export function LocationDetail({ id }: { id: string }) {
   const locationRequest = useApi(
     canView ? `/api/locations/${id}` : null,
     parseLocationBody,
+  );
+  const siteRequest = useApi(
+    canView && locationRequest.data
+      ? `/api/sites/${locationRequest.data.siteId}`
+      : null,
+    parseSiteSummary,
   );
   const assetsRequest = useApi(
     canView ? `/api/locations/${id}/assets` : null,
@@ -52,7 +60,7 @@ export function LocationDetail({ id }: { id: string }) {
     return null;
   }
 
-  if (locationRequest.loading || (!assetsMissing && assetsRequest.loading)) {
+  if (locationRequest.loading || siteRequest.loading || (!assetsMissing && assetsRequest.loading)) {
     return <p className="text-sm text-muted">Loading location…</p>;
   }
 
@@ -68,6 +76,14 @@ export function LocationDetail({ id }: { id: string }) {
     );
   }
 
+  if (siteRequest.error) {
+    return (
+      <p className="text-sm leading-6 text-ink" role="alert">
+        {siteRequest.error.message}
+      </p>
+    );
+  }
+
   if (assetsRequest.error && !assetsMissing) {
     return (
       <p className="text-sm leading-6 text-ink" role="alert">
@@ -77,6 +93,7 @@ export function LocationDetail({ id }: { id: string }) {
   }
 
   const location = locationRequest.data;
+  const site = siteRequest.data;
   const assets =
     assetsForLocation === id && savedAssets
       ? savedAssets
@@ -90,7 +107,7 @@ export function LocationDetail({ id }: { id: string }) {
     setAdding(false);
   }
 
-  if (!location || !assets) {
+  if (!location || !site || !assets) {
     return null;
   }
 
@@ -111,12 +128,23 @@ export function LocationDetail({ id }: { id: string }) {
   return (
     <div className="grid gap-8">
       <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
-        <Link
-          href={`/sites/${location.siteId}`}
-          className="text-sm font-medium text-gray-500 hover:text-gray-800"
-        >
-          Site
-        </Link>
+        {location.client ? (
+          <Breadcrumbs
+            current
+            items={[
+              { label: location.client.name, href: `/clients/${location.client.id}` },
+              { label: site.name, href: `/sites/${site.id}` },
+              { label: location.name ?? location.locationCode ?? "Location" },
+            ]}
+          />
+        ) : (
+          <Link
+            href={`/sites/${location.siteId}`}
+            className="text-sm font-medium text-gray-500 hover:text-gray-800"
+          >
+            Site
+          </Link>
+        )}
         <p className="mt-6 text-sm text-gray-500">Location</p>
         <h1 className="mt-1 text-2xl font-semibold text-gray-800">
           {location.name ?? location.locationCode ?? "Location"}
@@ -141,7 +169,7 @@ export function LocationDetail({ id }: { id: string }) {
         {assets.assets.length === 0 && !adding ? (
           <p className="text-sm text-gray-500">No assets yet.</p>
         ) : assets.assets.length > 0 ? (
-          <AssetTable assets={assets.assets} includeLocation={false} />
+          <AssetTable assets={assets.assets} />
         ) : null}
         {adding ? (
           <div className="mt-4 rounded-card bg-surface p-5 shadow-card">

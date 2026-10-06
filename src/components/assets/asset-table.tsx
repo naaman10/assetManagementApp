@@ -22,10 +22,6 @@ export function assetStatusLabel(status: AssetStatus): string {
   return statusLabels[status];
 }
 
-export function assetLocationLabel(location: AssetLocation): string {
-  return location.name ?? location.locationCode ?? "—";
-}
-
 export function formatQuantity(asset: Asset): string {
   if (asset.quantity == null) {
     return "—";
@@ -38,10 +34,10 @@ export function formatQuantity(asset: Asset): string {
 
 export function AssetTable({
   assets,
-  includeLocation,
+  includeLocation = false,
 }: {
   assets: Asset[];
-  includeLocation: boolean;
+  includeLocation?: boolean;
 }) {
   if (assets.length === 0) {
     return <p className="text-sm text-gray-500">No assets yet.</p>;
@@ -61,13 +57,25 @@ export function AssetTable({
                 href={`/locations/${asset.location.id}`}
                 className="text-sm font-medium text-gray-800"
               >
-                {assetLocationLabel(asset.location)}
+                {locationLabel(asset.location)}
               </Link>
             </td>
           ) : null}
-          <td className="px-5 py-4 text-sm text-gray-500">{asset.assetRef}</td>
+          <td className="px-5 py-4 text-sm text-gray-500">
+            {asset.assetName ? (
+              asset.assetRef
+            ) : (
+              <Link href={`/assets/${asset.id}`} className="font-medium text-gray-800">
+                {asset.assetRef}
+              </Link>
+            )}
+          </td>
           <td className="px-5 py-4 text-sm font-medium text-gray-800">
-            {asset.assetName ?? "—"}
+            {asset.assetName ? (
+              <Link href={`/assets/${asset.id}`}>{asset.assetName}</Link>
+            ) : (
+              "—"
+            )}
           </td>
           <td className="px-5 py-4 text-sm text-gray-500">{asset.assetType.name}</td>
           <td className="px-5 py-4 text-sm text-gray-500">{formatQuantity(asset)}</td>
@@ -76,4 +84,8 @@ export function AssetTable({
       ))}
     </DataTable>
   );
+}
+
+function locationLabel(location: AssetLocation): string {
+  return location.name ?? location.locationCode ?? "—";
 }

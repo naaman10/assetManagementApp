@@ -24,6 +24,11 @@ export type Site = {
   updatedAt: string;
 };
 
+export type NamedClient = {
+  id: string;
+  name: string;
+};
+
 export type SiteLocation = {
   id: string;
   siteId: string;
@@ -31,6 +36,7 @@ export type SiteLocation = {
   name: string | null;
   createdAt: string;
   updatedAt: string;
+  client?: NamedClient;
 };
 
 export type SiteDetail = Site & {
@@ -73,6 +79,7 @@ export type Asset = {
   quantity: number | null;
   unitOfMeasure: string | null;
   status: AssetStatus;
+  client: NamedClient;
   location: AssetLocation;
   assetType: AssetTypeSummary;
 };
@@ -98,6 +105,15 @@ export function parseSite(value: unknown): Site {
 
 export function parseSiteBody(data: unknown): Site {
   return parseSite(readSite(data));
+}
+
+export function parseSiteSummary(data: unknown): { id: string; name: string } {
+  const record = objectRecord(readSite(data), "site");
+
+  return {
+    id: requiredString(record, "id"),
+    name: requiredString(record, "name"),
+  };
 }
 
 export function parseLocationBody(data: unknown): SiteLocation {
@@ -172,6 +188,7 @@ function parseLocation(value: unknown): SiteLocation {
     name: optionalString(record, "name"),
     createdAt: optionalString(record, "createdAt") ?? "",
     updatedAt: optionalString(record, "updatedAt") ?? "",
+    ...(record.client == null ? {} : { client: parseNamedClient(record.client) }),
   };
 }
 
@@ -197,8 +214,18 @@ function parseAsset(value: unknown): Asset {
     quantity: optionalNumber(record, "quantity"),
     unitOfMeasure: optionalString(record, "unitOfMeasure"),
     status: parseAssetStatus(record.status),
+    client: parseNamedClient(record.client),
     location: parseAssetLocation(record.location),
     assetType: parseAssetTypeSummary(record.assetType),
+  };
+}
+
+function parseNamedClient(value: unknown): NamedClient {
+  const record = objectRecord(value, "client");
+
+  return {
+    id: requiredString(record, "id"),
+    name: requiredString(record, "name"),
   };
 }
 
