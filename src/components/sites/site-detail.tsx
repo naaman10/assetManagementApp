@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClientLogo } from "@/components/clients/client-logo";
@@ -24,6 +24,13 @@ import {
   type SiteDetail,
 } from "@/lib/sites";
 
+const tabs = [
+  { id: "locations", label: "Locations" },
+  { id: "assets", label: "Assets" },
+] as const;
+
+type SiteTab = (typeof tabs)[number]["id"];
+
 export function SiteDetailView({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useSession();
@@ -31,6 +38,9 @@ export function SiteDetailView({ id }: { id: string }) {
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const request = useApi(canView ? `/api/sites/${id}` : null, parseSiteDetail);
   const [saved, setSaved] = useState<SiteDetail | null>(null);
+  const [tab, setTab] = useState<SiteTab>("locations");
+  const [tabForSite, setTabForSite] = useState(id);
+  const tablistId = useId();
   const missing = request.error?.status === 404;
   const site = saved?.id === request.data?.id ? saved : request.data;
 
@@ -62,6 +72,11 @@ export function SiteDetailView({ id }: { id: string }) {
 
   if (!site) {
     return null;
+  }
+
+  if (tabForSite !== id) {
+    setTabForSite(id);
+    setTab("locations");
   }
 
   const loaded = site;
@@ -119,16 +134,65 @@ export function SiteDetailView({ id }: { id: string }) {
         </div>
         <SiteContact contact={site.contact} />
       </section>
-      <Locations
-        siteId={site.id}
-        locations={site.locations}
-        locationCount={site.locationCount}
-        canEdit={canEdit}
-        onSite={setSaved}
-        onMissing={() => {
-          router.replace("/sites");
-        }}
-      />
+      <section>
+        <div
+          role="tablist"
+          aria-label="Site records"
+          className="flex flex-wrap gap-6 border-b border-gray-200"
+        >
+          {tabs.map((item) => {
+            const selected = tab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                id={`${tablistId}-${item.id}`}
+                aria-selected={selected}
+                aria-controls={`${tablistId}-${item.id}-panel`}
+                onClick={() => {
+                  setTab(item.id);
+                }}
+                className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                  selected
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {item.label}
+                {item.id === "locations" ? (
+                  <span className="ml-2 font-medium text-gray-500">{site.locationCount}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        {tabs.map((item) => (
+          <div
+            key={item.id}
+            role="tabpanel"
+            id={`${tablistId}-${item.id}-panel`}
+            aria-labelledby={`${tablistId}-${item.id}`}
+            hidden={tab !== item.id}
+            className="mt-6"
+          >
+            {item.id === "locations" ? (
+              <Locations
+                siteId={site.id}
+                locations={site.locations}
+                canEdit={canEdit}
+                onSite={setSaved}
+                onMissing={() => {
+                  router.replace("/sites");
+                }}
+              />
+            ) : (
+              <p className="text-sm text-gray-500">No assets yet.</p>
+            )}
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
@@ -136,14 +200,12 @@ export function SiteDetailView({ id }: { id: string }) {
 function Locations({
   siteId,
   locations,
-  locationCount,
   canEdit,
   onSite,
   onMissing,
 }: {
   siteId: string;
   locations: SiteDetail["locations"];
-  locationCount: number;
   canEdit: boolean;
   onSite: (site: SiteDetail) => void;
   onMissing: () => void;
@@ -158,12 +220,8 @@ function Locations({
 
   return (
     <section>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold text-gray-800">
-          Locations{" "}
-          <span className="ml-2 text-sm font-medium text-gray-500">{locationCount}</span>
-        </h2>
-        {canEdit && !adding ? (
+      {canEdit && !adding ? (
+        <div className="flex justify-end">
           <button
             type="button"
             className={secondaryButtonClassName}
@@ -173,8 +231,8 @@ function Locations({
           >
             Add location
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {locations.length === 0 && !adding ? (
         <p className="mt-6 text-sm text-gray-500">No locations yet.</p>
       ) : locations.length > 0 ? (
