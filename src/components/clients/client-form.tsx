@@ -31,10 +31,14 @@ export function ClientForm({
   client,
   onSaved,
   leading,
+  embedded = false,
+  onCancel,
 }: {
   client?: Client;
   onSaved?: (client: Client) => void;
   leading?: React.ReactNode;
+  embedded?: boolean;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const creating = !client;
@@ -98,21 +102,9 @@ export function ClientForm({
 
   const fieldErrors = error?.fieldErrors ?? {};
 
-  return (
-    <section className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs sm:p-6">
-      <PageHeading
-        title={creating ? "Create client" : "Edit client"}
-        action={
-          client ? (
-            <Link href={`/clients/${client.id}`} className={secondaryButtonClassName}>
-              Back
-            </Link>
-          ) : null
-        }
-      />
-      {leading}
+  const form = (
       <form
-        className="mt-8 grid gap-5"
+        className={embedded ? "grid gap-5" : "mt-8 grid gap-5"}
         method="post"
         onSubmit={(event) => {
           void onSubmit(event);
@@ -171,15 +163,48 @@ export function ClientForm({
             onChange={setContacts}
           />
         ) : null}
-        <button type="submit" disabled={pending} className={primaryButtonClassName}>
-          {pending ? "Saving…" : creating ? "Create client" : "Save"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="submit" disabled={pending} className={primaryButtonClassName}>
+            {pending ? "Saving…" : creating ? "Create client" : "Save"}
+          </button>
+          {onCancel ? (
+            <button
+              type="button"
+              className={secondaryButtonClassName}
+              disabled={pending}
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
       </form>
+  );
+
+  if (embedded) {
+    return form;
+  }
+
+  return (
+    <section className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs sm:p-6">
+      <PageHeading
+        title={creating ? "Create client" : "Edit client"}
+        action={
+          client ? (
+            <Link href={`/clients/${client.id}`} className={secondaryButtonClassName}>
+              Back
+            </Link>
+          ) : null
+        }
+      />
+      {leading}
+      {form}
     </section>
   );
 }
 
 export function AddressFields({
+  idPrefix = "address",
   line1,
   line2,
   city,
@@ -195,6 +220,7 @@ export function AddressFields({
   onPostcode,
   onCountry,
 }: {
+  idPrefix?: string;
   line1: string;
   line2: string;
   city: string;
@@ -219,7 +245,7 @@ export function AddressFields({
         </p>
       ) : null}
       <TextField
-        id="address-line1"
+        id={`${idPrefix}-line1`}
         name="line1"
         label="Address line 1"
         autoComplete="address-line1"
@@ -233,7 +259,7 @@ export function AddressFields({
         }}
       />
       <TextField
-        id="address-line2"
+        id={`${idPrefix}-line2`}
         name="line2"
         label="Address line 2"
         autoComplete="address-line2"
@@ -246,7 +272,7 @@ export function AddressFields({
         }}
       />
       <TextField
-        id="address-city"
+        id={`${idPrefix}-city`}
         name="city"
         label="City"
         autoComplete="address-level2"
@@ -260,7 +286,7 @@ export function AddressFields({
         }}
       />
       <TextField
-        id="address-county"
+        id={`${idPrefix}-county`}
         name="county"
         label="County"
         autoComplete="address-level1"
@@ -273,7 +299,7 @@ export function AddressFields({
         }}
       />
       <TextField
-        id="address-postcode"
+        id={`${idPrefix}-postcode`}
         name="postcode"
         label="Postcode"
         autoComplete="postal-code"
@@ -287,7 +313,7 @@ export function AddressFields({
         }}
       />
       <TextField
-        id="address-country"
+        id={`${idPrefix}-country`}
         name="country"
         label="Country"
         autoComplete="country-name"

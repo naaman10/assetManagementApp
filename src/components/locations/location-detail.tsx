@@ -8,8 +8,10 @@ import { AssetTable } from "@/components/assets/asset-table";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
 import { secondaryButtonClassName } from "@/components/form-controls";
+import { InlineText, InlineTitle, PropertyGrid } from "@/components/inline-field";
+import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
-import { apiRequest, asApiError, useApi } from "@/lib/api-client";
+import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 import {
   includeAsset,
@@ -17,6 +19,7 @@ import {
   parseLocationBody,
   parseSiteSummary,
   type AssetList,
+  type SiteLocation,
 } from "@/lib/sites";
 
 export function LocationDetail({ id }: { id: string }) {
@@ -38,6 +41,7 @@ export function LocationDetail({ id }: { id: string }) {
     canView ? `/api/locations/${id}/assets` : null,
     parseAssetList,
   );
+  const [saved, setSaved] = useState<SiteLocation | null>(null);
   const [savedAssets, setSavedAssets] = useState<AssetList | null>(null);
   const [assetsForLocation, setAssetsForLocation] = useState(id);
   const [adding, setAdding] = useState(false);
@@ -92,7 +96,8 @@ export function LocationDetail({ id }: { id: string }) {
     );
   }
 
-  const location = locationRequest.data;
+  const location =
+    saved?.id === locationRequest.data?.id ? saved : locationRequest.data;
   const site = siteRequest.data;
   const assets =
     assetsForLocation === id && savedAssets
@@ -103,6 +108,7 @@ export function LocationDetail({ id }: { id: string }) {
 
   if (assetsForLocation !== id) {
     setAssetsForLocation(id);
+    setSaved(null);
     setSavedAssets(null);
     setAdding(false);
   }
@@ -113,6 +119,27 @@ export function LocationDetail({ id }: { id: string }) {
 
   const loaded = location;
   const loadedAssets = assets;
+
+  async function saveLocation(patch: Record<string, string | null>) {
+    try {
+      setSaved(
+        parseLocationBody(
+          await apiRequest(`/api/locations/${loaded.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(patch),
+          }),
+        ),
+      );
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+      }
+
+      throw apiError;
+    }
+  }
 
   async function created(asset: AssetList["assets"][number]) {
     setAdding(false);
@@ -146,14 +173,41 @@ export function LocationDetail({ id }: { id: string }) {
           </Link>
         )}
         <p className="mt-6 text-sm text-gray-500">Location</p>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-800">
-          {location.name ?? location.locationCode ?? "Location"}
-        </h1>
-        <p className="mt-3 text-sm text-muted">Location code</p>
-        <p className="mt-1 text-sm font-medium">{location.locationCode ?? "—"}</p>
+        <InlineTitle
+          value={location.name ?? ""}
+          display={location.name ?? location.locationCode ?? "Location"}
+          editable={canEdit}
+          onSave={async (name) => {
+            if (!name && !location.locationCode) {
+              throw new ApiRequestError(400, "Invalid request", {
+                name: ["Enter a name or a location code."],
+              });
+            }
+
+            await saveLocation({ name: name || null });
+          }}
+        />
+        <PropertyGrid>
+          <InlineText
+            label="Location code"
+            field="locationCode"
+            value={location.locationCode ?? ""}
+            editable={canEdit}
+            maxLength={200}
+            onSave={async (locationCode) => {
+              if (!locationCode && !location.name) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  locationCode: ["Enter a name or a location code."],
+                });
+              }
+
+              await saveLocation({ locationCode: locationCode || null });
+            }}
+          />
+        </PropertyGrid>
       </section>
       <section>
-        {canEdit && !adding ? (
+        {canEdit ? (
           <div className="flex justify-end">
             <button
               type="button"
@@ -166,13 +220,18 @@ export function LocationDetail({ id }: { id: string }) {
             </button>
           </div>
         ) : null}
-        {assets.assets.length === 0 && !adding ? (
+        {assets.assets.length === 0 ? (
           <p className="text-sm text-gray-500">No assets yet.</p>
-        ) : assets.assets.length > 0 ? (
+        ) : (
           <AssetTable assets={assets.assets} />
-        ) : null}
+        )}
         {adding ? (
-          <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+          <Modal
+            title="Add asset"
+            onClose={() => {
+              setAdding(false);
+            }}
+          >
             <AssetForm
               locationId={location.id}
               onCancel={() => {
@@ -182,7 +241,7 @@ export function LocationDetail({ id }: { id: string }) {
                 void created(asset);
               }}
             />
-          </div>
+          </Modal>
         ) : null}
       </section>
     </div>

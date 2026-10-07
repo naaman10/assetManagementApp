@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SiteForm } from "@/components/sites/site-form";
 import { DataTable, secondaryButtonClassName } from "@/components/form-controls";
+import { Modal } from "@/components/modal";
 import type { Client } from "@/lib/clients";
 
 export function ClientSites({
@@ -42,9 +43,9 @@ export function ClientSites({
           </button>
         </div>
       ) : null}
-      {client.sites.length === 0 && !adding ? (
+      {client.sites.length === 0 ? (
         <p className="mt-6 text-sm text-gray-500">No sites yet.</p>
-      ) : client.sites.length > 0 ? (
+      ) : (
         <DataTable columns={["Site", "Reference", "Location"]}>
           {client.sites.map((site) => (
             <tr key={site.id} className="hover:bg-gray-50">
@@ -65,12 +66,23 @@ export function ClientSites({
             </tr>
           ))}
         </DataTable>
-      ) : null}
+      )}
       {adding ? (
-        client.contacts.length === 0 ? (
-          <ContactRequired onShowContacts={onShowContacts} onCancel={() => setAdding(false)} />
-        ) : (
-          <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+        <Modal
+          title="Add site"
+          onClose={() => {
+            setAdding(false);
+          }}
+        >
+          {client.contacts.length === 0 ? (
+            <ContactRequired
+              onShowContacts={() => {
+                setAdding(false);
+                onShowContacts();
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
             <SiteForm
               clientId={client.id}
               contacts={client.contacts}
@@ -83,8 +95,8 @@ export function ClientSites({
                 onClient(next);
               }}
             />
-          </div>
-        )
+          )}
+        </Modal>
       ) : null}
     </section>
   );
@@ -98,7 +110,7 @@ function ContactRequired({
   onCancel: () => void;
 }) {
   return (
-    <div className="mt-4 grid gap-4 rounded-card bg-surface p-5 shadow-card">
+    <div className="grid gap-4">
       <p className="text-sm leading-6">
         A contact is required to add a site. Add one from the{" "}
         <button type="button" className="font-medium underline" onClick={onShowContacts}>

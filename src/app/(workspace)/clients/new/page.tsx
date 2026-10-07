@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
-import { CreateClient } from "@/components/clients/create-client";
-
-export const metadata: Metadata = {
-  title: "Create client · Asset Management",
-};
+import { redirect } from "next/navigation";
 
 export default function NewClientPage() {
-  return <CreateClient />;
+  redirect("/clients");
 }

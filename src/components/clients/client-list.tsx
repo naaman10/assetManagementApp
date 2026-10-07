@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ClientForm } from "@/components/clients/client-form";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
 import { DataTable, PageHeading, primaryButtonClassName } from "@/components/form-controls";
+import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
 import { apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody, parseClientList, type Client } from "@/lib/clients";
@@ -17,6 +19,7 @@ export function ClientList() {
   const request = useApi(canView ? "/api/clients" : null, parseClientList);
   const [rows, setRows] = useState<Client[] | null>(null);
   const [rowsFrom, setRowsFrom] = useState<Client[] | null>(null);
+  const [creating, setCreating] = useState(false);
 
   if (request.data !== rowsFrom) {
     setRowsFrom(request.data);
@@ -44,9 +47,15 @@ export function ClientList() {
         title="Clients"
         action={
           canCreate ? (
-            <Link href="/clients/new" className={primaryButtonClassName}>
+            <button
+              type="button"
+              className={primaryButtonClassName}
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
               Create client
-            </Link>
+            </button>
           ) : null
         }
       />
@@ -82,6 +91,21 @@ export function ClientList() {
             }
           }}
         />
+      ) : null}
+      {creating ? (
+        <Modal
+          title="Create client"
+          onClose={() => {
+            setCreating(false);
+          }}
+        >
+          <ClientForm
+            embedded
+            onCancel={() => {
+              setCreating(false);
+            }}
+          />
+        </Modal>
       ) : null}
     </section>
   );

@@ -1,9 +1,4 @@
-import type { Metadata } from "next";
-import { EditClient } from "@/components/clients/edit-client";
-
-export const metadata: Metadata = {
-  title: "Edit client · Asset Management",
-};
+import { redirect } from "next/navigation";
 
 export default async function EditClientPage({
   params,
@@ -11,5 +6,5 @@ export default async function EditClientPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <EditClient id={id} />;
+  redirect(`/clients/${id}`);
 }

@@ -1,25 +1,58 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { assetStatusLabel, formatQuantity } from "@/components/assets/asset-table";
+import { AssetTypePicker } from "@/components/assets/asset-type-picker";
+import { assetStatusLabel } from "@/components/assets/asset-table";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
+import {
+  FieldMessages,
+  FormBanner,
+  bannerMessage,
+} from "@/components/form-controls";
+import {
+  InlineSelect,
+  InlineText,
+  InlineTitle,
+  Property,
+  PropertyGrid,
+} from "@/components/inline-field";
 import { useSession } from "@/components/session-provider";
-import { asApiError, useApi } from "@/lib/api-client";
-import { CLIENTS_VIEW, hasPermission } from "@/lib/session";
-import { parseAssetBody, parseSiteSummary } from "@/lib/sites";
+import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
+import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
+import { ASSET_TYPES_VIEW, CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
+import {
+  ASSET_STATUSES,
+  parseAssetBody,
+  parseSiteSummary,
+  type Asset,
+  type AssetStatus,
+} from "@/lib/sites";
 
 export function AssetDetail({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useSession();
   const canView = hasPermission(user, CLIENTS_VIEW);
+  const canEdit = hasPermission(user, CLIENTS_EDIT);
+  const canPickTypes = hasPermission(user, ASSET_TYPES_VIEW);
   const request = useApi(canView ? `/api/assets/${id}` : null, parseAssetBody);
   const siteRequest = useApi(
     canView && request.data ? `/api/sites/${request.data.location.siteId}` : null,
     parseSiteSummary,
   );
+  const typesRequest = useApi(
+    canView && canEdit && canPickTypes ? "/api/asset-types" : null,
+    parseAssetTypeList,
+  );
+  const [saved, setSaved] = useState<Asset | null>(null);
+  const [savedFor, setSavedFor] = useState(id);
   const missing = request.error?.status === 404;
+
+  if (savedFor !== id) {
+    setSavedFor(id);
+    setSaved(null);
+  }
 
   useEffect(() => {
     if (missing) {
@@ -59,11 +92,34 @@ export function AssetDetail({ id }: { id: string }) {
     );
   }
 
-  const asset = request.data;
+  const asset = saved?.id === request.data?.id ? saved : request.data;
   const site = siteRequest.data;
 
   if (!asset || !site) {
     return null;
+  }
+
+  const loaded = asset;
+
+  async function saveAsset(patch: Record<string, unknown>) {
+    try {
+      setSaved(
+        parseAssetBody(
+          await apiRequest(`/api/assets/${loaded.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(patch),
+          }),
+        ),
+      );
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+      }
+
+      throw apiError;
+    }
   }
 
   return (
@@ -81,17 +137,156 @@ export function AssetDetail({ id }: { id: string }) {
         ]}
       />
       <p className="mt-6 text-sm text-gray-500">Asset</p>
-      <h1 className="mt-1 text-2xl font-semibold text-gray-800">
-        {asset.assetName ?? asset.assetRef}
-      </h1>
-      <p className="mt-3 text-sm text-muted">Reference</p>
-      <p className="mt-1 text-sm font-medium">{asset.assetRef}</p>
-      <p className="mt-3 text-sm text-muted">Type</p>
-      <p className="mt-1 text-sm font-medium">{asset.assetType.name}</p>
-      <p className="mt-3 text-sm text-muted">Quantity</p>
-      <p className="mt-1 text-sm font-medium">{formatQuantity(asset)}</p>
-      <p className="mt-3 text-sm text-muted">Status</p>
-      <p className="mt-1 text-sm font-medium">{assetStatusLabel(asset.status)}</p>
+      <InlineTitle
+        value={asset.assetName ?? ""}
+        display={asset.assetName ?? asset.assetRef}
+        field="assetName"
+        maxLength={255}
+        editable={canEdit}
+        onSave={async (assetName) => {
+          await saveAsset({ assetName: assetName || null });
+        }}
+      />
+      <PropertyGrid>
+        <InlineText
+          label="Reference"
+          field="assetRef"
+          value={asset.assetRef}
+          editable={canEdit}
+          maxLength={200}
+          onSave={async (assetRef) => {
+            if (!assetRef) {
+              throw new ApiRequestError(400, "Invalid request", {
+                assetRef: ["Enter a reference."],
+              });
+            }
+
+            await saveAsset({ assetRef });
+          }}
+        />
+        <AssetTypeField
+          asset={asset}
+          editable={canEdit && canPickTypes}
+          types={typesRequest.data ?? []}
+          loading={typesRequest.loading}
+          typesError={typesRequest.error?.message ?? null}
+          onSave={async (assetTypeId) => {
+            await saveAsset({ assetTypeId });
+          }}
+        />
+        <InlineText
+          label="Quantity"
+          field="quantity"
+          type="number"
+          value={asset.quantity == null ? "" : String(asset.quantity)}
+          editable={canEdit}
+          onSave={async (raw) => {
+            if (!raw) {
+              await saveAsset({ quantity: null });
+              return;
+            }
+
+            const quantity = Number(raw);
+
+            if (!Number.isFinite(quantity)) {
+              throw new ApiRequestError(400, "Invalid request", {
+                quantity: ["Enter a quantity."],
+              });
+            }
+
+            await saveAsset({ quantity });
+          }}
+        />
+        <InlineText
+          label="Unit"
+          field="unitOfMeasure"
+          value={asset.unitOfMeasure ?? ""}
+          editable={canEdit}
+          maxLength={40}
+          onSave={async (unitOfMeasure) => {
+            await saveAsset({ unitOfMeasure: unitOfMeasure || null });
+          }}
+        />
+        <InlineSelect
+          label="Status"
+          field="status"
+          value={asset.status}
+          editable={canEdit}
+          options={ASSET_STATUSES.map((status) => ({
+            value: status,
+            label: assetStatusLabel(status),
+          }))}
+          onSave={async (status) => {
+            await saveAsset({ status: status as AssetStatus });
+          }}
+        />
+      </PropertyGrid>
     </section>
+  );
+}
+
+function AssetTypeField({
+  asset,
+  editable,
+  types,
+  loading,
+  typesError,
+  onSave,
+}: {
+  asset: Asset;
+  editable: boolean;
+  types: AssetType[];
+  loading: boolean;
+  typesError: string | null;
+  onSave: (assetTypeId: string) => Promise<void>;
+}) {
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const options = types.filter(
+    (assetType) => assetType.isActive || assetType.id === asset.assetType.id,
+  );
+
+  return (
+    <Property label="Type">
+      {editable ? (
+        <>
+          <AssetTypePicker
+            id={`asset-${asset.id}-type`}
+            types={options}
+            value={asset.assetType.id}
+            disabled={pending}
+            loading={loading}
+            onChange={(assetTypeId) => {
+              if (assetTypeId === asset.assetType.id || pending) {
+                return;
+              }
+
+              setPending(true);
+              setError(null);
+              void onSave(assetTypeId)
+                .catch((caught) => {
+                  setError(asApiError(caught));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
+            }}
+          />
+          {typesError ? (
+            <p className="mt-1.5 text-sm text-error-500" role="alert">
+              {typesError}
+            </p>
+          ) : null}
+          {error ? (
+            <>
+              <FormBanner message={bannerMessage(error.message, error.fieldErrors)} />
+              <FieldMessages messages={error.fieldErrors.assetTypeId} />
+            </>
+          ) : null}
+        </>
+      ) : (
+        <span>{asset.assetType.name}</span>
+      )}
+    </Property>
   );
 }

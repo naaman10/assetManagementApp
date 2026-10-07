@@ -99,7 +99,7 @@ export function ClientSettings({
   const lead = (
     <SettingsGroup
       title="Client lead"
-      detail="A contact on this client. This person does not gain access to the client."
+      detail="Client side lead."
     >
       {canEdit ? (
         client.contacts.length === 0 ? (
@@ -138,7 +138,7 @@ export function ClientSettings({
   const sponsor = (
     <SettingsGroup
       title="Sponsor"
-      detail="One user. The sponsor can see this client."
+      detail="Use who represents the client internally."
     >
       {canEdit && (choosingUsers || client.settings.sponsor) ? (
         <SelectField
@@ -168,7 +168,7 @@ export function ClientSettings({
     canEdit && (choosingUsers || memberChoices.length > 0) ? (
       <ChoiceGroup legend="Members" messages={fieldErrors.memberIds}>
         <p className="text-sm leading-6 text-muted">
-          Any number of users. Members can see this client. The sponsor may also be a member.
+          Users who require access to the client.
         </p>
         {memberIds.length === 0 ? <EmptyValue>No members yet.</EmptyValue> : null}
         {memberChoices.map((person) => (
@@ -191,7 +191,7 @@ export function ClientSettings({
     ) : (
       <SettingsGroup
         title="Members"
-        detail="Any number of users. Members can see this client. The sponsor may also be a member."
+        detail="Users who have access to the client."
       >
         {client.settings.members.length > 0 ? (
           <ul className="grid gap-2">

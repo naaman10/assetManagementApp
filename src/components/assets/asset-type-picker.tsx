@@ -9,6 +9,8 @@ export function AssetTypePicker({
   value,
   disabled,
   loading,
+  startOpen = false,
+  onDismiss,
   onChange,
 }: {
   id: string;
@@ -16,6 +18,8 @@ export function AssetTypePicker({
   value: string;
   disabled?: boolean;
   loading?: boolean;
+  startOpen?: boolean;
+  onDismiss?: () => void;
   onChange: (assetTypeId: string) => void;
 }) {
   const listId = useId();
@@ -23,7 +27,7 @@ export function AssetTypePicker({
   const searchRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [highlightQuery, setHighlightQuery] = useState("");
@@ -69,9 +73,13 @@ export function AssetTypePicker({
     optionRefs.current[highlight]?.scrollIntoView({ block: "nearest" });
   }, [highlight, open, matches.length]);
 
-  function close(focusButton: boolean) {
+  function close(focusButton: boolean, dismiss = true) {
     setOpen(false);
     setQuery("");
+
+    if (dismiss) {
+      onDismiss?.();
+    }
 
     if (focusButton) {
       buttonRef.current?.focus();
@@ -80,7 +88,7 @@ export function AssetTypePicker({
 
   function choose(assetTypeId: string) {
     onChange(assetTypeId);
-    close(true);
+    close(false, false);
   }
 
   function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

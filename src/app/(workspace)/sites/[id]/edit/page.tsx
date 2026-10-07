@@ -1,9 +1,4 @@
-import type { Metadata } from "next";
-import { EditSite } from "@/components/sites/edit-site";
-
-export const metadata: Metadata = {
-  title: "Edit site · Asset Management",
-};
+import { redirect } from "next/navigation";
 
 export default async function EditSitePage({
   params,
@@ -11,5 +6,5 @@ export default async function EditSitePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <EditSite id={id} />;
+  redirect(`/sites/${id}`);
 }

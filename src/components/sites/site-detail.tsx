@@ -15,9 +15,17 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/form-controls";
+import {
+  InlineAddress,
+  InlineSelect,
+  InlineText,
+  InlineTitle,
+  PropertyGrid,
+} from "@/components/inline-field";
+import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
-import { parseClientBody, type Address } from "@/lib/clients";
+import { parseClientBody } from "@/lib/clients";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 import {
   includeAsset,
@@ -45,6 +53,11 @@ export function SiteDetailView({ id }: { id: string }) {
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const request = useApi(canView ? `/api/sites/${id}` : null, parseSiteDetail);
   const assetsRequest = useApi(canView ? `/api/sites/${id}/assets` : null, parseAssetList);
+  const contactsClientId = canEdit ? (request.data?.client.id ?? null) : null;
+  const contactsRequest = useApi(
+    contactsClientId ? `/api/clients/${contactsClientId}` : null,
+    parseClientBody,
+  );
   const [saved, setSaved] = useState<SiteDetail | null>(null);
   const [savedAssets, setSavedAssets] = useState<AssetList | null>(null);
   const [assetsForSite, setAssetsForSite] = useState(id);
@@ -111,6 +124,28 @@ export function SiteDetailView({ id }: { id: string }) {
   }
 
   const loaded = site;
+  const contactChoices = contactOptions(contactsRequest.data?.contacts ?? [], site.contact);
+
+  async function saveSite(patch: Record<string, unknown>) {
+    try {
+      setSaved(
+        parseSiteDetail(
+          await apiRequest(`/api/sites/${loaded.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(patch),
+          }),
+        ),
+      );
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+      }
+
+      throw apiError;
+    }
+  }
 
   async function reloadLogo(): Promise<string | null> {
     try {
@@ -150,20 +185,54 @@ export function SiteDetailView({ id }: { id: string }) {
               <span className="font-medium">{site.client.name}</span>
             </Link>
             <p className="mt-6 text-sm text-gray-500">Site</p>
-            <h1 className="mt-1 text-2xl font-semibold text-gray-800">{site.name}</h1>
-            <p className="mt-3 text-sm text-muted">Reference</p>
-            <p className="mt-1 text-sm font-medium">{site.reference ?? "—"}</p>
-            <p className="mt-3 text-sm leading-6 whitespace-pre-line">
-              {formatAddress(site.address)}
-            </p>
+            <InlineTitle
+              value={site.name}
+              editable={canEdit}
+              onSave={async (name) => {
+                if (!name) {
+                  throw new ApiRequestError(400, "Invalid request", {
+                    name: ["Enter a name."],
+                  });
+                }
+
+                await saveSite({ name });
+              }}
+            />
+            <PropertyGrid>
+              <InlineText
+                label="Reference"
+                field="reference"
+                value={site.reference ?? ""}
+                editable={canEdit}
+                maxLength={200}
+                onSave={async (reference) => {
+                  await saveSite({ reference: reference || null });
+                }}
+              />
+              <InlineSelect
+                label="Contact"
+                field="contactId"
+                value={site.contact.id}
+                editable={canEdit}
+                options={contactChoices.map((contact) => ({
+                  value: contact.id,
+                  label: contact.name,
+                }))}
+                aside={<ContactActions contact={site.contact} />}
+                onSave={async (contactId) => {
+                  await saveSite({ contactId });
+                }}
+              />
+              <InlineAddress
+                address={site.address}
+                editable={canEdit}
+                onSave={async (address) => {
+                  await saveSite({ address });
+                }}
+              />
+            </PropertyGrid>
           </div>
-          {canEdit ? (
-            <Link href={`/sites/${site.id}/edit`} className={secondaryButtonClassName}>
-              Edit
-            </Link>
-          ) : null}
         </div>
-        <SiteContact contact={site.contact} />
       </section>
       <section>
         <div
@@ -286,31 +355,43 @@ function SiteAssets({
           </button>
         </div>
       ) : null}
-      {assets.assets.length === 0 && !adding ? (
+      {assets.assets.length === 0 ? (
         <p className="text-sm text-gray-500">No assets yet.</p>
-      ) : assets.assets.length > 0 ? (
+      ) : (
         <AssetTable assets={assets.assets} includeLocation />
-      ) : null}
+      )}
       {adding ? (
-        locations.length === 0 ? (
-          <div className="mt-4 grid gap-4 rounded-card bg-surface p-5 shadow-card">
-            <p className="text-sm leading-6">
-              A location is required to add an asset. Add one from the{" "}
+        <Modal
+          title="Add asset"
+          onClose={() => {
+            setAdding(false);
+          }}
+        >
+          {locations.length === 0 ? (
+            <div className="grid gap-4">
+              <p className="text-sm leading-6">
+                A location is required to add an asset. Add one from the{" "}
+                <button
+                  type="button"
+                  className="font-medium underline"
+                  onClick={() => {
+                    setAdding(false);
+                    onShowLocations();
+                  }}
+                >
+                  Locations tab
+                </button>
+                .
+              </p>
               <button
                 type="button"
-                className="font-medium underline"
-                onClick={onShowLocations}
+                className={secondaryButtonClassName}
+                onClick={() => setAdding(false)}
               >
-                Locations tab
+                Cancel
               </button>
-              .
-            </p>
-            <button type="button" className={secondaryButtonClassName} onClick={() => setAdding(false)}>
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+            </div>
+          ) : (
             <AssetForm
               locations={locations}
               onCancel={() => {
@@ -320,8 +401,8 @@ function SiteAssets({
                 void created(asset);
               }}
             />
-          </div>
-        )
+          )}
+        </Modal>
       ) : null}
     </section>
   );
@@ -363,9 +444,9 @@ function Locations({
           </button>
         </div>
       ) : null}
-      {locations.length === 0 && !adding ? (
+      {locations.length === 0 ? (
         <p className="mt-6 text-sm text-gray-500">No locations yet.</p>
-      ) : locations.length > 0 ? (
+      ) : (
         <DataTable columns={["Name", "Location code"]}>
           {locations.map((location) => (
             <tr key={location.id} className="hover:bg-gray-50">
@@ -383,9 +464,14 @@ function Locations({
             </tr>
           ))}
         </DataTable>
-      ) : null}
+      )}
       {adding ? (
-        <div className="mt-4 rounded-card bg-surface p-5 shadow-card">
+        <Modal
+          title="Add location"
+          onClose={() => {
+            setAdding(false);
+          }}
+        >
           <LocationForm
             siteId={siteId}
             onCancel={() => {
@@ -397,7 +483,7 @@ function Locations({
             }}
             onMissing={onMissing}
           />
-        </div>
+        </Modal>
       ) : null}
     </section>
   );
@@ -517,54 +603,49 @@ function locationLinkText(location: SiteLocation): string {
   return location.name ?? location.locationCode ?? "Location";
 }
 
-function formatAddress(address: Address): string {
-  return [
-    address.line1,
-    address.line2,
-    address.city,
-    address.county,
-    address.postcode,
-    address.country,
-  ]
-    .filter((line): line is string => Boolean(line))
-    .join("\n");
+function contactOptions(
+  contacts: readonly Contact[],
+  current: Contact,
+): readonly Contact[] {
+  if (contacts.some((contact) => contact.id === current.id)) {
+    return contacts;
+  }
+
+  return [current, ...contacts];
 }
 
-function SiteContact({ contact }: { contact: Contact }) {
+function ContactActions({ contact }: { contact: Contact }) {
   const email = mailtoHref(contact.email);
   const telephone = telHref(contact.telephone);
 
+  if (!contact.role && !email && !telephone) {
+    return null;
+  }
+
   return (
-    <div className="mt-8 inline-flex max-w-full items-center gap-4 rounded-2xl border border-line px-4 py-3">
-      <div className="min-w-0">
-        <p className="truncate font-medium">{contact.name}</p>
-        {contact.role ? (
-          <p className="mt-1 truncate text-sm text-muted">{contact.role}</p>
-        ) : null}
-      </div>
-      {email || telephone ? (
-        <div className="flex shrink-0 gap-2">
-          {email ? (
-            <a
-              href={email}
-              aria-label={`Email ${contact.name}`}
-              title={contact.email ?? undefined}
-              className="flex size-10 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
-            >
-              <MailIcon />
-            </a>
-          ) : null}
-          {telephone ? (
-            <a
-              href={telephone}
-              aria-label={`Call ${contact.name}`}
-              title={contact.telephone ?? undefined}
-              className="flex size-10 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
-            >
-              <PhoneIcon />
-            </a>
-          ) : null}
-        </div>
+    <div className="flex items-center gap-2">
+      {contact.role ? (
+        <span className="text-sm font-normal text-gray-500">{contact.role}</span>
+      ) : null}
+      {email ? (
+        <a
+          href={email}
+          aria-label={`Email ${contact.name}`}
+          title={contact.email ?? undefined}
+          className="flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
+        >
+          <MailIcon />
+        </a>
+      ) : null}
+      {telephone ? (
+        <a
+          href={telephone}
+          aria-label={`Call ${contact.name}`}
+          title={contact.telephone ?? undefined}
+          className="flex size-9 items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"
+        >
+          <PhoneIcon />
+        </a>
       ) : null}
     </div>
   );
