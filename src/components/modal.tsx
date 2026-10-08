@@ -32,7 +32,7 @@ export function Modal({
     <dialog
       ref={dialogRef}
       aria-labelledby="modal-title"
-      className="w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40"
+      className="m-auto h-fit w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40"
       onCancel={(event) => {
         event.preventDefault();
         onCloseRef.current();

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { AssetType } from "@/lib/asset-types";
+
+type PickerType = {
+  id: string;
+  name: string;
+  code: string;
+};
 
 export function AssetTypePicker({
   id,
@@ -10,15 +15,19 @@ export function AssetTypePicker({
   disabled,
   loading,
   startOpen = false,
+  showCode = true,
+  listLabel = "Asset types",
   onDismiss,
   onChange,
 }: {
   id: string;
-  types: AssetType[];
+  types: PickerType[];
   value: string;
   disabled?: boolean;
   loading?: boolean;
   startOpen?: boolean;
+  showCode?: boolean;
+  listLabel?: string;
   onDismiss?: () => void;
   onChange: (assetTypeId: string) => void;
 }) {
@@ -149,14 +158,16 @@ export function AssetTypePicker({
           setQuery("");
           setOpen(true);
         }}
-        className="flex h-11 w-full items-center gap-3 rounded-lg border border-gray-300 bg-transparent px-3 text-left shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
+        className="flex h-11 w-full items-center gap-3 rounded-lg border border-gray-300 bg-transparent py-0 pr-4 pl-3 text-left shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
       >
         {selected ? (
           <>
             <TypeMark label={initials(selected.name)} />
             <span id={`${id}-value`} className="min-w-0 flex-1 truncate text-sm text-gray-800">
-              {selected.name}{" "}
-              <span className="ml-2 text-xs text-gray-500">{selected.code}</span>
+              {selected.name}
+              {showCode ? (
+                <span className="ml-2 text-xs text-gray-500">{selected.code}</span>
+              ) : null}
             </span>
           </>
         ) : (
@@ -182,7 +193,7 @@ export function AssetTypePicker({
               aria-controls={listId}
               aria-activedescendant={activeId}
               aria-autocomplete="list"
-              aria-label="Search asset types"
+              aria-label={`Search ${listLabel.toLowerCase()}`}
               placeholder="Search types"
               autoComplete="off"
               onChange={(event) => {
@@ -195,12 +206,14 @@ export function AssetTypePicker({
           <ul
             id={listId}
             role="listbox"
-            aria-label="Asset types"
+            aria-label={listLabel}
             className="mt-2 max-h-60 overflow-y-auto"
           >
             {matches.length === 0 ? (
               <li className="px-3 py-2 text-sm text-gray-500">
-                {types.length === 0 ? "No asset types yet." : "No asset types match."}
+                {types.length === 0
+                  ? `No ${listLabel.toLowerCase()} yet.`
+                  : `No ${listLabel.toLowerCase()} match.`}
               </li>
             ) : (
               matches.map((assetType, index) => {
@@ -235,9 +248,11 @@ export function AssetTypePicker({
                         <span className="block truncate text-sm font-medium text-gray-800">
                           {assetType.name}
                         </span>
-                        <span className="block truncate text-xs text-gray-500">
-                          {assetType.code}
-                        </span>
+                        {showCode ? (
+                          <span className="block truncate text-xs text-gray-500">
+                            {assetType.code}
+                          </span>
+                        ) : null}
                       </span>
                       {isSelected ? <CheckIcon /> : null}
                     </button>
@@ -252,7 +267,7 @@ export function AssetTypePicker({
   );
 }
 
-function filterTypes(types: AssetType[], query: string): AssetType[] {
+function filterTypes(types: PickerType[], query: string): PickerType[] {
   const needle = query.trim().toLowerCase();
 
   if (!needle) {

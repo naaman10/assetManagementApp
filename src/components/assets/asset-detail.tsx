@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
+import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
 import {
@@ -21,7 +22,17 @@ import {
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
-import { ASSET_TYPES_VIEW, CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
+import {
+  parseMaintenanceScheduleList,
+  type MaintenanceScheduleList,
+} from "@/lib/maintenance-schedules";
+import {
+  ASSET_TYPES_VIEW,
+  CLIENTS_EDIT,
+  CLIENTS_VIEW,
+  MAINTENANCE_TYPES_VIEW,
+  hasPermission,
+} from "@/lib/session";
 import {
   ASSET_STATUSES,
   parseAssetBody,
@@ -36,6 +47,8 @@ export function AssetDetail({ id }: { id: string }) {
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const canPickTypes = hasPermission(user, ASSET_TYPES_VIEW);
+  const canPickMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
+  const tablistId = useId();
   const request = useApi(canView ? `/api/assets/${id}` : null, parseAssetBody);
   const siteRequest = useApi(
     canView && request.data ? `/api/sites/${request.data.location.siteId}` : null,
@@ -45,26 +58,37 @@ export function AssetDetail({ id }: { id: string }) {
     canView && canEdit && canPickTypes ? "/api/asset-types" : null,
     parseAssetTypeList,
   );
+  const schedulesRequest = useApi(
+    canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
+    parseMaintenanceScheduleList,
+  );
   const [saved, setSaved] = useState<Asset | null>(null);
   const [savedFor, setSavedFor] = useState(id);
+  const [savedSchedules, setSavedSchedules] = useState<MaintenanceScheduleList | null>(null);
+  const [schedulesFor, setSchedulesFor] = useState(id);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const missing = request.error?.status === 404;
+  const schedulesMissing = schedulesRequest.error?.status === 404;
 
-  if (savedFor !== id) {
+  if (savedFor !== id || schedulesFor !== id) {
     setSavedFor(id);
+    setSchedulesFor(id);
     setSaved(null);
+    setSavedSchedules(null);
+    setScheduleError(null);
   }
 
   useEffect(() => {
-    if (missing) {
+    if (missing || schedulesMissing) {
       router.replace("/sites");
     }
-  }, [missing, router]);
+  }, [missing, schedulesMissing, router]);
 
   if (!canView) {
     return <Forbidden />;
   }
 
-  if (missing) {
+  if (missing || schedulesMissing) {
     return null;
   }
 
@@ -94,6 +118,7 @@ export function AssetDetail({ id }: { id: string }) {
 
   const asset = saved?.id === request.data?.id ? saved : request.data;
   const site = siteRequest.data;
+  const scheduleList = savedSchedules ?? schedulesRequest.data;
 
   if (!asset || !site) {
     return null;
@@ -122,106 +147,172 @@ export function AssetDetail({ id }: { id: string }) {
     }
   }
 
+  async function reloadSchedules() {
+    try {
+      setSavedSchedules(
+        parseMaintenanceScheduleList(
+          await apiRequest(`/api/assets/${loaded.id}/maintenance-schedules`),
+        ),
+      );
+      setScheduleError(null);
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+        return;
+      }
+
+      setScheduleError(apiError.message);
+    }
+  }
+
   return (
-    <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
-      <Breadcrumbs
-        current
-        items={[
-          { label: asset.client.name, href: `/clients/${asset.client.id}` },
-          { label: site.name, href: `/sites/${site.id}` },
-          {
-            label: asset.location.name ?? asset.location.locationCode ?? "Location",
-            href: `/locations/${asset.location.id}`,
-          },
-          { label: asset.assetName ?? asset.assetRef },
-        ]}
-      />
-      <p className="mt-6 text-sm text-gray-500">Asset</p>
-      <InlineTitle
-        value={asset.assetName ?? ""}
-        display={asset.assetName ?? asset.assetRef}
-        field="assetName"
-        maxLength={255}
-        editable={canEdit}
-        onSave={async (assetName) => {
-          await saveAsset({ assetName: assetName || null });
-        }}
-      />
-      <PropertyGrid>
-        <InlineText
-          label="Reference"
-          field="assetRef"
-          value={asset.assetRef}
+    <div className="grid gap-8">
+      <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
+        <Breadcrumbs
+          current
+          items={[
+            { label: asset.client.name, href: `/clients/${asset.client.id}` },
+            { label: site.name, href: `/sites/${site.id}` },
+            {
+              label: asset.location.name ?? asset.location.locationCode ?? "Location",
+              href: `/locations/${asset.location.id}`,
+            },
+            { label: asset.assetName ?? asset.assetRef },
+          ]}
+        />
+        <p className="mt-6 text-sm text-gray-500">Asset</p>
+        <InlineTitle
+          value={asset.assetName ?? ""}
+          display={asset.assetName ?? asset.assetRef}
+          field="assetName"
+          maxLength={255}
           editable={canEdit}
-          maxLength={200}
-          onSave={async (assetRef) => {
-            if (!assetRef) {
-              throw new ApiRequestError(400, "Invalid request", {
-                assetRef: ["Enter a reference."],
-              });
+          onSave={async (assetName) => {
+            await saveAsset({ assetName: assetName || null });
+          }}
+        />
+        <PropertyGrid>
+          <InlineText
+            label="Reference"
+            field="assetRef"
+            value={asset.assetRef}
+            editable={canEdit}
+            maxLength={200}
+            onSave={async (assetRef) => {
+              if (!assetRef) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  assetRef: ["Enter a reference."],
+                });
+              }
+
+              await saveAsset({ assetRef });
+            }}
+          />
+          <AssetTypeField
+            asset={asset}
+            editable={canEdit && canPickTypes}
+            types={typesRequest.data ?? []}
+            loading={typesRequest.loading}
+            typesError={typesRequest.error?.message ?? null}
+            onSave={async (assetTypeId) => {
+              await saveAsset({ assetTypeId });
+            }}
+          />
+          <InlineText
+            label="Quantity"
+            field="quantity"
+            type="number"
+            value={asset.quantity == null ? "" : String(asset.quantity)}
+            editable={canEdit}
+            onSave={async (raw) => {
+              if (!raw) {
+                await saveAsset({ quantity: null });
+                return;
+              }
+
+              const quantity = Number(raw);
+
+              if (!Number.isFinite(quantity)) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  quantity: ["Enter a quantity."],
+                });
+              }
+
+              await saveAsset({ quantity });
+            }}
+          />
+          <InlineText
+            label="Unit"
+            field="unitOfMeasure"
+            value={asset.unitOfMeasure ?? ""}
+            editable={canEdit}
+            maxLength={40}
+            onSave={async (unitOfMeasure) => {
+              await saveAsset({ unitOfMeasure: unitOfMeasure || null });
+            }}
+          />
+          <InlineSelect
+            label="Status"
+            field="status"
+            value={asset.status}
+            editable={canEdit}
+            options={ASSET_STATUSES.map((status) => ({
+              value: status,
+              label: assetStatusLabel(status),
+            }))}
+            onSave={async (status) => {
+              await saveAsset({ status: status as AssetStatus });
+            }}
+          />
+        </PropertyGrid>
+      </section>
+      <section>
+        <div
+          role="tablist"
+          aria-label="Asset records"
+          className="flex flex-wrap gap-6 border-b border-gray-200"
+        >
+          <button
+            type="button"
+            role="tab"
+            id={`${tablistId}-schedules`}
+            aria-selected
+            aria-controls={`${tablistId}-schedules-panel`}
+            className="-mb-px border-b-2 border-brand-500 pb-3 text-sm font-medium text-brand-500"
+          >
+            Maintenance schedules
+            {scheduleList ? (
+              <span className="ml-2 font-medium text-gray-500">
+                {scheduleList.maintenanceScheduleCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+        <div
+          role="tabpanel"
+          id={`${tablistId}-schedules-panel`}
+          aria-labelledby={`${tablistId}-schedules`}
+          className="mt-6"
+        >
+          <MaintenanceSchedulePanel
+            assetId={asset.id}
+            schedules={scheduleList}
+            loading={schedulesRequest.loading && !scheduleList}
+            error={
+              scheduleError ?? (scheduleList ? null : (schedulesRequest.error?.message ?? null))
             }
-
-            await saveAsset({ assetRef });
-          }}
-        />
-        <AssetTypeField
-          asset={asset}
-          editable={canEdit && canPickTypes}
-          types={typesRequest.data ?? []}
-          loading={typesRequest.loading}
-          typesError={typesRequest.error?.message ?? null}
-          onSave={async (assetTypeId) => {
-            await saveAsset({ assetTypeId });
-          }}
-        />
-        <InlineText
-          label="Quantity"
-          field="quantity"
-          type="number"
-          value={asset.quantity == null ? "" : String(asset.quantity)}
-          editable={canEdit}
-          onSave={async (raw) => {
-            if (!raw) {
-              await saveAsset({ quantity: null });
-              return;
-            }
-
-            const quantity = Number(raw);
-
-            if (!Number.isFinite(quantity)) {
-              throw new ApiRequestError(400, "Invalid request", {
-                quantity: ["Enter a quantity."],
-              });
-            }
-
-            await saveAsset({ quantity });
-          }}
-        />
-        <InlineText
-          label="Unit"
-          field="unitOfMeasure"
-          value={asset.unitOfMeasure ?? ""}
-          editable={canEdit}
-          maxLength={40}
-          onSave={async (unitOfMeasure) => {
-            await saveAsset({ unitOfMeasure: unitOfMeasure || null });
-          }}
-        />
-        <InlineSelect
-          label="Status"
-          field="status"
-          value={asset.status}
-          editable={canEdit}
-          options={ASSET_STATUSES.map((status) => ({
-            value: status,
-            label: assetStatusLabel(status),
-          }))}
-          onSave={async (status) => {
-            await saveAsset({ status: status as AssetStatus });
-          }}
-        />
-      </PropertyGrid>
-    </section>
+            canEdit={canEdit}
+            canPickTypes={canPickMaintenanceTypes}
+            onReload={reloadSchedules}
+            onAssetMissing={() => {
+              router.replace("/sites");
+            }}
+          />
+        </div>
+      </section>
+    </div>
   );
 }
 
