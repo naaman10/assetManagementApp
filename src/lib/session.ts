@@ -39,6 +39,10 @@ export const BCIS_SUB_REFS_VIEW = "bcisSubRef:view";
 export const BCIS_SUB_REFS_CREATE = "bcisSubRef:create";
 export const BCIS_SUB_REFS_EDIT = "bcisSubRef:edit";
 export const BCIS_SUB_REFS_DELETE = "bcisSubRef:delete";
+export const MAINTENANCE_TYPES_VIEW = "maintenanceTypes:view";
+export const MAINTENANCE_TYPES_CREATE = "maintenanceTypes:create";
+export const MAINTENANCE_TYPES_EDIT = "maintenanceTypes:edit";
+export const MAINTENANCE_TYPES_DELETE = "maintenanceTypes:delete";
 export const ADMIN_ROLE = "admin";
 
 export const USER_AREA_PERMISSIONS = [

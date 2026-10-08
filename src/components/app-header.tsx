@@ -17,6 +17,7 @@ import {
   CLIENTS_VIEW,
   hasAnyPermission,
   hasPermission,
+  MAINTENANCE_TYPES_VIEW,
   ROLE_AREA_PERMISSIONS,
   ROLES_CREATE,
   ROLES_VIEW,
@@ -35,6 +36,7 @@ export function AppHeader() {
   const showAssetTypes = hasPermission(user, ASSET_TYPES_VIEW);
   const showBcisRefs = hasAnyPermission(user, BCIS_REF_AREA_PERMISSIONS);
   const showBcisSubRefs = hasAnyPermission(user, BCIS_SUB_REF_AREA_PERMISSIONS);
+  const showMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
@@ -103,11 +105,17 @@ export function AppHeader() {
           <NavLink href="/audits" active={pathname.startsWith("/audits")} icon={<AuditsIcon />}>
             Audits
           </NavLink>
-          {showAssetTypes || showBcisRefs || showBcisSubRefs || showUsers || showRoles ? (
+          {showAssetTypes ||
+          showMaintenanceTypes ||
+          showBcisRefs ||
+          showBcisSubRefs ||
+          showUsers ||
+          showRoles ? (
             <SettingsMenu
               pathname={pathname}
               user={user}
               showAssetTypes={showAssetTypes}
+              showMaintenanceTypes={showMaintenanceTypes}
               showBcisRefs={showBcisRefs}
               showBcisSubRefs={showBcisSubRefs}
               showUsers={showUsers}
@@ -133,6 +141,7 @@ function SettingsMenu({
   pathname,
   user,
   showAssetTypes,
+  showMaintenanceTypes,
   showBcisRefs,
   showBcisSubRefs,
   showUsers,
@@ -141,6 +150,7 @@ function SettingsMenu({
   pathname: string;
   user: SessionUser;
   showAssetTypes: boolean;
+  showMaintenanceTypes: boolean;
   showBcisRefs: boolean;
   showBcisSubRefs: boolean;
   showUsers: boolean;
@@ -149,6 +159,7 @@ function SettingsMenu({
   const menuId = useId();
   const active =
     pathname.startsWith("/asset-types") ||
+    pathname.startsWith("/maintenance-types") ||
     pathname.startsWith("/bcis-refs") ||
     pathname.startsWith("/bcis-sub-refs") ||
     pathname.startsWith("/settings");
@@ -180,6 +191,15 @@ function SettingsMenu({
               icon={<AssetTypesIcon />}
             >
               Asset types
+            </NavLink>
+          ) : null}
+          {showMaintenanceTypes ? (
+            <NavLink
+              href="/maintenance-types"
+              active={pathname.startsWith("/maintenance-types")}
+              icon={<MaintenanceTypesIcon />}
+            >
+              Maintenance types
             </NavLink>
           ) : null}
           {showBcisRefs || showBcisSubRefs ? (
@@ -476,6 +496,25 @@ function ReferencesIcon() {
       />
       <path
         d="M7.5 7.5h5M7.5 10.5h3.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MaintenanceTypesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M11.6 4.2 8.4 7.4l-3.1 1 .8 2.2 2.2.8 1 3.1 3.2-3.2a3.1 3.1 0 0 0 3.6-4.4l-2.1 2.1-1.6-.5-.5-1.6 2.1-2.1a3.1 3.1 0 0 0-4.4 3.6Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m5.2 13.4-1.6 1.6"
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
