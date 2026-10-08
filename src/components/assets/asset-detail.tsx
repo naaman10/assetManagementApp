@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
 import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
+import { WorkOrderPanel } from "@/components/work-orders/work-order-panel";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
 import {
@@ -26,6 +27,7 @@ import {
   parseMaintenanceScheduleList,
   type MaintenanceScheduleList,
 } from "@/lib/maintenance-schedules";
+import { parseWorkOrderList, type WorkOrderList } from "@/lib/work-orders";
 import {
   ASSET_TYPES_VIEW,
   CLIENTS_EDIT,
@@ -62,33 +64,48 @@ export function AssetDetail({ id }: { id: string }) {
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
     parseMaintenanceScheduleList,
   );
+  const ordersRequest = useApi(
+    canView && request.data ? `/api/assets/${request.data.id}/work-orders` : null,
+    parseWorkOrderList,
+  );
   const [saved, setSaved] = useState<Asset | null>(null);
   const [savedFor, setSavedFor] = useState(id);
   const [savedSchedules, setSavedSchedules] = useState<MaintenanceScheduleList | null>(null);
   const [schedulesFor, setSchedulesFor] = useState(id);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [savedOrders, setSavedOrders] = useState<WorkOrderList | null>(null);
+  const [ordersFor, setOrdersFor] = useState(id);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [recordTab, setRecordTab] = useState<"schedules" | "orders">("schedules");
+  const [recordTabFor, setRecordTabFor] = useState(id);
   const missing = request.error?.status === 404;
   const schedulesMissing = schedulesRequest.error?.status === 404;
+  const ordersMissing = ordersRequest.error?.status === 404;
 
-  if (savedFor !== id || schedulesFor !== id) {
+  if (savedFor !== id || schedulesFor !== id || ordersFor !== id || recordTabFor !== id) {
     setSavedFor(id);
     setSchedulesFor(id);
+    setOrdersFor(id);
+    setRecordTabFor(id);
     setSaved(null);
     setSavedSchedules(null);
+    setSavedOrders(null);
     setScheduleError(null);
+    setOrderError(null);
+    setRecordTab("schedules");
   }
 
   useEffect(() => {
-    if (missing || schedulesMissing) {
+    if (missing || schedulesMissing || ordersMissing) {
       router.replace("/sites");
     }
-  }, [missing, schedulesMissing, router]);
+  }, [missing, schedulesMissing, ordersMissing, router]);
 
   if (!canView) {
     return <Forbidden />;
   }
 
-  if (missing || schedulesMissing) {
+  if (missing || schedulesMissing || ordersMissing) {
     return null;
   }
 
@@ -119,6 +136,7 @@ export function AssetDetail({ id }: { id: string }) {
   const asset = saved?.id === request.data?.id ? saved : request.data;
   const site = siteRequest.data;
   const scheduleList = savedSchedules ?? schedulesRequest.data;
+  const orderList = savedOrders ?? ordersRequest.data;
 
   if (!asset || !site) {
     return null;
@@ -164,6 +182,24 @@ export function AssetDetail({ id }: { id: string }) {
       }
 
       setScheduleError(apiError.message);
+    }
+  }
+
+  async function reloadWorkOrders() {
+    try {
+      setSavedOrders(
+        parseWorkOrderList(await apiRequest(`/api/assets/${loaded.id}/work-orders`)),
+      );
+      setOrderError(null);
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+        return;
+      }
+
+      setOrderError(apiError.message);
     }
   }
 
@@ -274,26 +310,44 @@ export function AssetDetail({ id }: { id: string }) {
           aria-label="Asset records"
           className="flex flex-wrap gap-6 border-b border-gray-200"
         >
-          <button
-            type="button"
-            role="tab"
-            id={`${tablistId}-schedules`}
-            aria-selected
-            aria-controls={`${tablistId}-schedules-panel`}
-            className="-mb-px border-b-2 border-brand-500 pb-3 text-sm font-medium text-brand-500"
-          >
-            Maintenance schedules
-            {scheduleList ? (
-              <span className="ml-2 font-medium text-gray-500">
-                {scheduleList.maintenanceScheduleCount}
-              </span>
-            ) : null}
-          </button>
+          {(
+            [
+              ["schedules", "Maintenance schedules", scheduleList?.maintenanceScheduleCount],
+              ["orders", "Work orders", orderList?.workOrderCount],
+            ] as const
+          ).map(([itemId, label, count]) => {
+            const selected = recordTab === itemId;
+
+            return (
+              <button
+                key={itemId}
+                type="button"
+                role="tab"
+                id={`${tablistId}-${itemId}`}
+                aria-selected={selected}
+                aria-controls={`${tablistId}-${itemId}-panel`}
+                onClick={() => {
+                  setRecordTab(itemId);
+                }}
+                className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                  selected
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {label}
+                {count == null ? null : (
+                  <span className="ml-2 font-medium text-gray-500">{count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <div
           role="tabpanel"
           id={`${tablistId}-schedules-panel`}
           aria-labelledby={`${tablistId}-schedules`}
+          hidden={recordTab !== "schedules"}
           className="mt-6"
         >
           <MaintenanceSchedulePanel
@@ -309,6 +363,24 @@ export function AssetDetail({ id }: { id: string }) {
             onAssetMissing={() => {
               router.replace("/sites");
             }}
+          />
+        </div>
+        <div
+          role="tabpanel"
+          id={`${tablistId}-orders-panel`}
+          aria-labelledby={`${tablistId}-orders`}
+          hidden={recordTab !== "orders"}
+          className="mt-6"
+        >
+          <WorkOrderPanel
+            assetId={asset.id}
+            assetLabel={asset.assetName ?? asset.assetRef}
+            orders={orderList}
+            loading={ordersRequest.loading && !orderList}
+            error={orderError ?? (orderList ? null : (ordersRequest.error?.message ?? null))}
+            canCreate={canPickMaintenanceTypes}
+            canEdit={canPickMaintenanceTypes}
+            onReload={reloadWorkOrders}
           />
         </div>
       </section>

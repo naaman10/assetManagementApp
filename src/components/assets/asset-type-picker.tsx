@@ -8,6 +8,10 @@ type PickerType = {
   code: string;
 };
 
+type PickerRow = PickerType & {
+  clear?: boolean;
+};
+
 export function AssetTypePicker({
   id,
   types,
@@ -17,6 +21,10 @@ export function AssetTypePicker({
   startOpen = false,
   showCode = true,
   listLabel = "Asset types",
+  placeholder = "Choose a type",
+  searchPlaceholder = "Search types",
+  loadingLabel = "Loading types…",
+  clearLabel,
   onDismiss,
   onChange,
 }: {
@@ -28,6 +36,10 @@ export function AssetTypePicker({
   startOpen?: boolean;
   showCode?: boolean;
   listLabel?: string;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  loadingLabel?: string;
+  clearLabel?: string;
   onDismiss?: () => void;
   onChange: (assetTypeId: string) => void;
 }) {
@@ -41,7 +53,8 @@ export function AssetTypePicker({
   const [highlight, setHighlight] = useState(0);
   const [highlightQuery, setHighlightQuery] = useState("");
   const selected = types.find((assetType) => assetType.id === value) ?? null;
-  const matches = filterTypes(types, query);
+  const matches = pickerRows(types, query, clearLabel);
+  const showingClear = !selected && !loading && Boolean(clearLabel);
 
   if (query !== highlightQuery) {
     setHighlightQuery(query);
@@ -133,7 +146,10 @@ export function AssetTypePicker({
     }
   }
 
-  const activeId = matches[highlight] ? `${listId}-${matches[highlight].id}` : undefined;
+  const activeMatch = matches[highlight];
+  const activeId = activeMatch
+    ? `${listId}-${activeMatch.clear ? "clear" : activeMatch.id}`
+    : undefined;
 
   return (
     <div ref={rootRef} className="relative mt-1.5">
@@ -145,14 +161,14 @@ export function AssetTypePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        aria-labelledby={selected ? `${id}-label ${id}-value` : `${id}-label`}
+        aria-labelledby={selected || showingClear ? `${id}-label ${id}-value` : `${id}-label`}
         onClick={() => {
           if (open) {
             close(false);
             return;
           }
 
-          const index = types.findIndex((assetType) => assetType.id === value);
+          const index = pickerRows(types, "", clearLabel).findIndex((row) => row.id === value);
           setHighlight(index >= 0 ? index : 0);
           setHighlightQuery("");
           setQuery("");
@@ -170,11 +186,18 @@ export function AssetTypePicker({
               ) : null}
             </span>
           </>
+        ) : showingClear ? (
+          <>
+            <TypeMark empty />
+            <span id={`${id}-value`} className="min-w-0 flex-1 truncate text-sm text-gray-800">
+              {clearLabel}
+            </span>
+          </>
         ) : (
           <>
             <TypeMark empty />
             <span className="min-w-0 flex-1 truncate text-sm text-gray-400">
-              {loading ? "Loading types…" : "Choose a type"}
+              {loading ? loadingLabel : placeholder}
             </span>
           </>
         )}
@@ -194,7 +217,7 @@ export function AssetTypePicker({
               aria-activedescendant={activeId}
               aria-autocomplete="list"
               aria-label={`Search ${listLabel.toLowerCase()}`}
-              placeholder="Search types"
+              placeholder={searchPlaceholder}
               autoComplete="off"
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -217,16 +240,16 @@ export function AssetTypePicker({
               </li>
             ) : (
               matches.map((assetType, index) => {
-                const isSelected = assetType.id === value;
+                const isSelected = assetType.clear ? value === "" : assetType.id === value;
                 const isActive = index === highlight;
 
                 return (
-                  <li key={assetType.id}>
+                  <li key={assetType.clear ? "clear" : assetType.id}>
                     <button
                       ref={(node) => {
                         optionRefs.current[index] = node;
                       }}
-                      id={`${listId}-${assetType.id}`}
+                      id={`${listId}-${assetType.clear ? "clear" : assetType.id}`}
                       type="button"
                       role="option"
                       aria-selected={isSelected}
@@ -243,12 +266,16 @@ export function AssetTypePicker({
                         isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
                       }`}
                     >
-                      <TypeMark label={initials(assetType.name)} />
+                      {assetType.clear ? (
+                        <TypeMark empty />
+                      ) : (
+                        <TypeMark label={initials(assetType.name)} />
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-gray-800">
                           {assetType.name}
                         </span>
-                        {showCode ? (
+                        {showCode && !assetType.clear ? (
                           <span className="block truncate text-xs text-gray-500">
                             {assetType.code}
                           </span>
@@ -265,6 +292,17 @@ export function AssetTypePicker({
       ) : null}
     </div>
   );
+}
+
+function pickerRows(types: PickerType[], query: string, clearLabel?: string): PickerRow[] {
+  const filtered = filterTypes(types, query);
+  const needle = query.trim().toLowerCase();
+
+  if (!clearLabel || (needle && !clearLabel.toLowerCase().includes(needle))) {
+    return filtered;
+  }
+
+  return [{ id: "", name: clearLabel, code: "", clear: true }, ...filtered];
 }
 
 function filterTypes(types: PickerType[], query: string): PickerType[] {

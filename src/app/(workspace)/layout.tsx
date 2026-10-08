@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { AppHeader } from "@/components/app-header";
+import { GlobalSearch } from "@/components/global-search";
+import { MobileSearchProvider } from "@/components/mobile-search";
 import { SessionProvider } from "@/components/session-provider";
 import { getSession } from "@/lib/auth";
 
@@ -17,12 +19,15 @@ export default async function WorkspaceLayout({
 
   return (
     <SessionProvider user={session.user}>
-      <div className="min-h-dvh">
-        <AppHeader />
-        <main className="min-h-dvh px-4 pt-20 pb-6 lg:ml-[290px] lg:px-6 lg:pt-6">
-          {children}
-        </main>
-      </div>
+      <MobileSearchProvider>
+        <div className="min-h-dvh">
+          <AppHeader />
+          <main className="min-h-dvh px-4 pt-20 pb-6 lg:ml-[290px] lg:px-6 lg:pt-6">
+            <GlobalSearch />
+            {children}
+          </main>
+        </div>
+      </MobileSearchProvider>
     </SessionProvider>
   );
 }

@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
+import { useMobileSearch } from "@/components/mobile-search";
 import { SignOutButton } from "@/components/sign-out-button";
 import { useSession } from "@/components/session-provider";
 import {
@@ -32,6 +33,7 @@ export function AppHeader() {
   const { user } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openOnPath, setOpenOnPath] = useState(pathname);
+  const mobileSearch = useMobileSearch();
   const showClients = hasPermission(user, CLIENTS_VIEW);
   const showAssetTypes = hasPermission(user, ASSET_TYPES_VIEW);
   const showBcisRefs = hasAnyPermission(user, BCIS_REF_AREA_PERMISSIONS);
@@ -53,6 +55,7 @@ export function AppHeader() {
           aria-label="Open menu"
           aria-expanded={mobileOpen}
           onClick={() => {
+            mobileSearch.close();
             setMobileOpen(true);
           }}
           className="flex size-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
@@ -60,6 +63,21 @@ export function AppHeader() {
           <MenuIcon />
         </button>
         <Logo />
+        <button
+          type="button"
+          aria-label={mobileSearch.expanded ? "Close search" : "Search"}
+          aria-expanded={mobileSearch.expanded}
+          aria-controls="workspace-search"
+          onClick={() => {
+            setMobileOpen(false);
+            mobileSearch.toggle();
+          }}
+          className={`ml-auto flex size-10 items-center justify-center rounded-lg hover:bg-gray-100 ${
+            mobileSearch.expanded ? "bg-gray-100 text-gray-800" : "text-gray-500"
+          }`}
+        >
+          <SearchIcon />
+        </button>
       </header>
       {mobileOpen ? (
         <button
@@ -104,6 +122,13 @@ export function AppHeader() {
           ) : null}
           <NavLink href="/audits" active={pathname.startsWith("/audits")} icon={<AuditsIcon />}>
             Audits
+          </NavLink>
+          <NavLink
+            href="/work-orders"
+            active={pathname.startsWith("/work-orders")}
+            icon={<WorkOrdersIcon />}
+          >
+            Work orders
           </NavLink>
           {showAssetTypes ||
           showMaintenanceTypes ||
@@ -459,6 +484,20 @@ function MenuIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="m12.5 12.5 4 4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
@@ -571,6 +610,21 @@ function AuditsIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function WorkOrdersIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <rect x="4.5" y="3.5" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M7.5 10.2 9.1 11.8 12.6 8.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
