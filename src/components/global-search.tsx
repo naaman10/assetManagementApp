@@ -345,9 +345,8 @@ export function GlobalSearch() {
             /
           </kbd>
         ) : null}
-      </div>
-      {dropdownOpen ? (
-        <div className="absolute top-full z-30 mt-1.5 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-theme-xs">
+        {dropdownOpen ? (
+        <div className="absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-theme-xs">
           {showError ? (
             <p className="px-4 py-3 text-sm text-error-600" role="alert">
               {error}
@@ -405,7 +404,8 @@ export function GlobalSearch() {
             </ul>
           ) : null}
         </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
