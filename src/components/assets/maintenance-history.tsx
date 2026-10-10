@@ -665,7 +665,7 @@ function DownloadPhotoButton({ source, filename }: { source: string; filename: s
     <button
       type="button"
       aria-label="Download photo"
-      className="absolute top-2 right-2 grid size-8 place-items-center rounded-lg bg-white text-gray-700 opacity-0 shadow-theme-xs pointer-events-none transition group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+      className="pointer-events-none absolute top-2 right-2 grid size-8 place-items-center rounded-lg bg-gray-900/80 text-white opacity-0 shadow-theme-xs transition group-hover:pointer-events-auto group-hover:opacity-100 hover:bg-gray-900 focus-visible:pointer-events-auto focus-visible:opacity-100"
       onClick={(event) => {
         event.stopPropagation();
         void downloadPhoto(source, filename);
