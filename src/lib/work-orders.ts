@@ -42,6 +42,7 @@ export type WorkOrderClient = {
 
 export type WorkOrderSchedule = {
   id: string;
+  reference: string | null;
   name: string;
 };
 
@@ -59,6 +60,7 @@ export type WorkOrderAssignee = {
 
 export type WorkOrder = {
   id: string;
+  reference: string;
   assetId: string;
   asset: WorkOrderAsset;
   client: WorkOrderClient;
@@ -152,6 +154,7 @@ function parseWorkOrder(value: unknown): WorkOrder {
 
   return {
     id: requiredString(record, "id"),
+    reference: requiredString(record, "reference"),
     assetId: requiredString(record, "assetId"),
     asset: {
       id: requiredString(asset, "id"),
@@ -187,6 +190,7 @@ function parseSchedule(value: unknown): WorkOrderSchedule {
 
   return {
     id: requiredString(record, "id"),
+    reference: optionalString(record, "reference"),
     name: requiredString(record, "name"),
   };
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useId, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
+import { MaintenanceHistoryPanel } from "@/components/assets/maintenance-history";
 import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
 import { WorkOrderPanel } from "@/components/work-orders/work-order-panel";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -24,6 +25,10 @@ import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
 import {
+  parseMaintenanceHistoryList,
+  type MaintenanceHistoryList,
+} from "@/lib/maintenance-history";
+import {
   parseMaintenanceScheduleList,
   type MaintenanceScheduleList,
 } from "@/lib/maintenance-schedules";
@@ -43,8 +48,29 @@ import {
   type AssetStatus,
 } from "@/lib/sites";
 
+type RecordTab = "schedules" | "orders" | "history";
+
 export function AssetDetail({ id }: { id: string }) {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Loading asset…</p>}>
+      <AssetDetailContent id={id} />
+    </Suspense>
+  );
+}
+
+function AssetDetailContent({ id }: { id: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const scheduleParam = searchParams.get("schedule");
+  const historyParam = searchParams.get("history");
+  const scheduleId = scheduleParam && scheduleParam.length > 0 ? scheduleParam : null;
+  const historyId = historyParam && historyParam.length > 0 ? historyParam : null;
+  const linkKey = historyId
+    ? `history:${historyId}`
+    : scheduleId
+      ? `schedule:${scheduleId}`
+      : null;
   const { user } = useSession();
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
@@ -68,6 +94,10 @@ export function AssetDetail({ id }: { id: string }) {
     canView && request.data ? `/api/assets/${request.data.id}/work-orders` : null,
     parseWorkOrderList,
   );
+  const historyRequest = useApi(
+    canView && request.data ? `/api/assets/${request.data.id}/maintenance-history` : null,
+    parseMaintenanceHistoryList,
+  );
   const [saved, setSaved] = useState<Asset | null>(null);
   const [savedFor, setSavedFor] = useState(id);
   const [savedSchedules, setSavedSchedules] = useState<MaintenanceScheduleList | null>(null);
@@ -76,36 +106,58 @@ export function AssetDetail({ id }: { id: string }) {
   const [savedOrders, setSavedOrders] = useState<WorkOrderList | null>(null);
   const [ordersFor, setOrdersFor] = useState(id);
   const [orderError, setOrderError] = useState<string | null>(null);
-  const [recordTab, setRecordTab] = useState<"schedules" | "orders">("schedules");
+  const [savedHistory, setSavedHistory] = useState<MaintenanceHistoryList | null>(null);
+  const [historyFor, setHistoryFor] = useState(id);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [recordTab, setRecordTab] = useState<RecordTab>("schedules");
   const [recordTabFor, setRecordTabFor] = useState(id);
+  const [seenLink, setSeenLink] = useState<string | null>(null);
   const missing = request.error?.status === 404;
   const schedulesMissing = schedulesRequest.error?.status === 404;
   const ordersMissing = ordersRequest.error?.status === 404;
+  const historyMissing = historyRequest.error?.status === 404;
+  const assetChanged =
+    savedFor !== id ||
+    schedulesFor !== id ||
+    ordersFor !== id ||
+    historyFor !== id ||
+    recordTabFor !== id;
 
-  if (savedFor !== id || schedulesFor !== id || ordersFor !== id || recordTabFor !== id) {
+  if (assetChanged) {
     setSavedFor(id);
     setSchedulesFor(id);
     setOrdersFor(id);
+    setHistoryFor(id);
     setRecordTabFor(id);
     setSaved(null);
     setSavedSchedules(null);
     setSavedOrders(null);
+    setSavedHistory(null);
     setScheduleError(null);
     setOrderError(null);
-    setRecordTab("schedules");
+    setHistoryError(null);
+    setSeenLink(linkKey);
+    setRecordTab(historyId ? "history" : "schedules");
+  } else if (linkKey !== seenLink) {
+    setSeenLink(linkKey);
+    if (historyId) {
+      setRecordTab("history");
+    } else if (scheduleId) {
+      setRecordTab("schedules");
+    }
   }
 
   useEffect(() => {
-    if (missing || schedulesMissing || ordersMissing) {
+    if (missing || schedulesMissing || ordersMissing || historyMissing) {
       router.replace("/sites");
     }
-  }, [missing, schedulesMissing, ordersMissing, router]);
+  }, [missing, schedulesMissing, ordersMissing, historyMissing, router]);
 
   if (!canView) {
     return <Forbidden />;
   }
 
-  if (missing || schedulesMissing || ordersMissing) {
+  if (missing || schedulesMissing || ordersMissing || historyMissing) {
     return null;
   }
 
@@ -137,6 +189,14 @@ export function AssetDetail({ id }: { id: string }) {
   const site = siteRequest.data;
   const scheduleList = savedSchedules ?? schedulesRequest.data;
   const orderList = savedOrders ?? ordersRequest.data;
+  const historyList = savedHistory ?? historyRequest.data;
+
+  function clearQuery(name: "schedule" | "history") {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(name);
+    const next = params.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  }
 
   if (!asset || !site) {
     return null;
@@ -200,6 +260,26 @@ export function AssetDetail({ id }: { id: string }) {
       }
 
       setOrderError(apiError.message);
+    }
+  }
+
+  async function reloadHistory() {
+    try {
+      setSavedHistory(
+        parseMaintenanceHistoryList(
+          await apiRequest(`/api/assets/${loaded.id}/maintenance-history`),
+        ),
+      );
+      setHistoryError(null);
+    } catch (error) {
+      const apiError = asApiError(error);
+
+      if (apiError.status === 404) {
+        router.replace("/sites");
+        return;
+      }
+
+      setHistoryError(apiError.message);
     }
   }
 
@@ -314,6 +394,7 @@ export function AssetDetail({ id }: { id: string }) {
             [
               ["schedules", "Maintenance schedules", scheduleList?.maintenanceScheduleCount],
               ["orders", "Work orders", orderList?.workOrderCount],
+              ["history", "Maintenance history", historyList?.maintenanceHistoryCount],
             ] as const
           ).map(([itemId, label, count]) => {
             const selected = recordTab === itemId;
@@ -359,6 +440,14 @@ export function AssetDetail({ id }: { id: string }) {
             }
             canEdit={canEdit}
             canPickTypes={canPickMaintenanceTypes}
+            requestedScheduleId={historyId ? null : scheduleId}
+            onRequestedScheduleClose={
+              scheduleId && !historyId
+                ? () => {
+                    clearQuery("schedule");
+                  }
+                : undefined
+            }
             onReload={reloadSchedules}
             onAssetMissing={() => {
               router.replace("/sites");
@@ -381,6 +470,37 @@ export function AssetDetail({ id }: { id: string }) {
             canCreate={canPickMaintenanceTypes}
             canEdit={canPickMaintenanceTypes}
             onReload={reloadWorkOrders}
+          />
+        </div>
+        <div
+          role="tabpanel"
+          id={`${tablistId}-history-panel`}
+          aria-labelledby={`${tablistId}-history`}
+          hidden={recordTab !== "history"}
+          className="mt-6"
+        >
+          <MaintenanceHistoryPanel
+            assetId={asset.id}
+            records={historyList}
+            loading={historyRequest.loading && !historyList}
+            error={
+              historyError ?? (historyList ? null : (historyRequest.error?.message ?? null))
+            }
+            workOrders={orderList}
+            canEdit={canEdit}
+            canPickTypes={canPickMaintenanceTypes}
+            requestedHistoryId={historyId}
+            onRequestedHistoryClose={
+              historyId
+                ? () => {
+                    clearQuery("history");
+                  }
+                : undefined
+            }
+            onReload={reloadHistory}
+            onAssetMissing={() => {
+              router.replace("/sites");
+            }}
           />
         </div>
       </section>

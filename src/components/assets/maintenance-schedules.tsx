@@ -33,6 +33,8 @@ export function MaintenanceSchedulePanel({
   error,
   canEdit,
   canPickTypes,
+  requestedScheduleId = null,
+  onRequestedScheduleClose,
   onReload,
   onAssetMissing,
 }: {
@@ -42,16 +44,41 @@ export function MaintenanceSchedulePanel({
   error: string | null;
   canEdit: boolean;
   canPickTypes: boolean;
+  requestedScheduleId?: string | null;
+  onRequestedScheduleClose?: () => void;
   onReload: () => Promise<void>;
   onAssetMissing: () => void;
 }) {
   const [open, setOpen] = useState<MaintenanceSchedule | "create" | null>(null);
   const [openFor, setOpenFor] = useState(assetId);
+  const [trackedRequest, setTrackedRequest] = useState<string | null>(null);
+  const [appliedId, setAppliedId] = useState<string | null>(null);
   const showAdd = canEdit && canPickTypes;
+  const requested =
+    schedules?.maintenanceSchedules.find((schedule) => schedule.id === requestedScheduleId) ??
+    null;
 
   if (openFor !== assetId) {
     setOpenFor(assetId);
     setOpen(null);
+    setTrackedRequest(null);
+    setAppliedId(null);
+  }
+
+  if (requestedScheduleId !== trackedRequest) {
+    setTrackedRequest(requestedScheduleId);
+    setAppliedId(null);
+    setOpen(null);
+  }
+
+  if (requested && requestedScheduleId === requested.id && appliedId !== requested.id) {
+    setAppliedId(requested.id);
+    setOpen(requested);
+  }
+
+  function closeModal() {
+    setOpen(null);
+    onRequestedScheduleClose?.();
   }
 
   if (!schedules) {
@@ -93,9 +120,10 @@ export function MaintenanceSchedulePanel({
       {schedules.maintenanceSchedules.length === 0 ? (
         <p className="text-sm text-gray-500">No maintenance schedules yet.</p>
       ) : (
-        <DataTable columns={["Name", "Type", "Frequency", "Next due", "Status"]}>
+        <DataTable columns={["Reference", "Name", "Type", "Frequency", "Next due", "Status"]}>
           {schedules.maintenanceSchedules.map((schedule) => (
             <tr key={schedule.id} className="hover:bg-gray-50">
+              <td className="px-5 py-4 text-sm text-gray-500">{schedule.reference}</td>
               <td className="px-5 py-4">
                 <button
                   type="button"
@@ -124,9 +152,7 @@ export function MaintenanceSchedulePanel({
       {open ? (
         <Modal
           title={open === "create" ? "Add maintenance schedule" : open.name}
-          onClose={() => {
-            setOpen(null);
-          }}
+          onClose={closeModal}
         >
           <ScheduleForm
             key={open === "create" ? "create" : open.id}
@@ -134,15 +160,13 @@ export function MaintenanceSchedulePanel({
             schedule={open === "create" ? null : open}
             canEdit={canEdit}
             canPickTypes={canPickTypes}
-            onCancel={() => {
-              setOpen(null);
-            }}
+            onCancel={closeModal}
             onSaved={async () => {
-              setOpen(null);
+              closeModal();
               await onReload();
             }}
             onMissing={async () => {
-              setOpen(null);
+              closeModal();
               await onReload();
             }}
             onAssetMissing={onAssetMissing}
@@ -276,6 +300,15 @@ function ScheduleForm({
   const fields = (
     <div className="grid gap-5">
       <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
+      {schedule ? (
+        <TextField
+          id="schedule-reference"
+          label="Reference"
+          value={schedule.reference}
+          disabled
+          readOnly
+        />
+      ) : null}
       <TextField
         id="schedule-name"
         name="name"

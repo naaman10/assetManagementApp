@@ -180,11 +180,25 @@ export function ClientEditor({ id }: { id: string }) {
                 <InlineText
                   label="Reference"
                   field="reference"
-                  value={client.reference ?? ""}
+                  value={client.reference}
                   editable={canEdit}
                   maxLength={200}
                   onSave={async (reference) => {
-                    await saveClient({ reference: reference || null });
+                    const trimmed = reference.trim();
+
+                    if (!trimmed) {
+                      throw new ApiRequestError(400, "Invalid request", {
+                        reference: ["Enter a reference."],
+                      });
+                    }
+
+                    if (trimmed.length > 200) {
+                      throw new ApiRequestError(400, "Invalid request", {
+                        reference: ["Enter a reference up to 200 characters."],
+                      });
+                    }
+
+                    await saveClient({ reference: trimmed });
                   }}
                 />
                 <InlineAddress

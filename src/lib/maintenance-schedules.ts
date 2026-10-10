@@ -10,6 +10,7 @@ export type ScheduleMaintenanceType = {
 
 export type MaintenanceSchedule = {
   id: string;
+  reference: string;
   name: string;
   maintenanceTypeId: string;
   maintenanceType: ScheduleMaintenanceType;
@@ -82,6 +83,7 @@ function parseMaintenanceSchedule(value: unknown): MaintenanceSchedule {
 
   return {
     id: requiredString(record, "id"),
+    reference: requiredString(record, "reference"),
     name: requiredString(record, "name"),
     maintenanceTypeId: requiredString(record, "maintenanceTypeId"),
     maintenanceType,

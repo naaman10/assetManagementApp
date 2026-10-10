@@ -30,17 +30,32 @@ export type WorkOrderSearchResult = SearchResultBase & {
   assetId: string;
 };
 
+export type MaintenanceScheduleSearchResult = SearchResultBase & {
+  type: "maintenanceSchedule";
+  assetId: string;
+};
+
+export type MaintenanceHistorySearchResult = SearchResultBase & {
+  type: "maintenanceHistory";
+  assetId: string;
+  workOrderId: string | null;
+};
+
 export type SearchResult =
   | SiteSearchResult
   | LocationSearchResult
   | AssetSearchResult
-  | WorkOrderSearchResult;
+  | WorkOrderSearchResult
+  | MaintenanceScheduleSearchResult
+  | MaintenanceHistorySearchResult;
 
 const typeLabels: Record<SearchResult["type"], string> = {
   site: "Site",
   location: "Location",
   asset: "Asset",
   workOrder: "Work order",
+  maintenanceSchedule: "Maintenance schedule",
+  maintenanceHistory: "Maintenance history",
 };
 
 export function searchResultTypeLabel(type: SearchResult["type"]): string {
@@ -57,6 +72,10 @@ export function searchResultHref(result: SearchResult): string {
       return `/assets/${result.id}`;
     case "workOrder":
       return `/work-orders?order=${encodeURIComponent(result.id)}`;
+    case "maintenanceSchedule":
+      return `/assets/${result.assetId}?schedule=${encodeURIComponent(result.id)}`;
+    case "maintenanceHistory":
+      return `/assets/${result.assetId}?history=${encodeURIComponent(result.id)}`;
   }
 }
 
@@ -122,6 +141,23 @@ function parseSearchResult(value: unknown): SearchResult {
     };
   }
 
+  if (type === "maintenanceSchedule") {
+    return {
+      type,
+      ...base,
+      assetId: requiredString(record, "assetId"),
+    };
+  }
+
+  if (type === "maintenanceHistory") {
+    return {
+      type,
+      ...base,
+      assetId: requiredString(record, "assetId"),
+      workOrderId: optionalString(record, "workOrderId"),
+    };
+  }
+
   throw new Error("The response could not be read.");
 }
 
@@ -150,4 +186,9 @@ function requiredString(record: Record<string, unknown>, key: string): string {
   }
 
   return value;
+}
+
+function optionalString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
 }

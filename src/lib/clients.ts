@@ -42,7 +42,7 @@ export type ClientSettings = {
 export type Client = {
   id: string;
   name: string;
-  reference: string | null;
+  reference: string;
   logoUrl: string | null;
   address: Address;
   contacts: Contact[];
@@ -135,7 +135,7 @@ function parseClient(value: unknown): Client {
   return {
     id: requiredString(record, "id"),
     name: requiredString(record, "name"),
-    reference: optionalString(record, "reference"),
+    reference: requiredString(record, "reference"),
     logoUrl: optionalString(record, "logoUrl"),
     address: parseAddress(record.address),
     contacts: Array.isArray(record.contacts)

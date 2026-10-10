@@ -57,6 +57,13 @@ export function ClientForm({
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const draft = { name, reference, line1, line2, city, county, postcode, country };
+    const referenceError = referenceErrorMessage(reference);
+
+    if (referenceError) {
+      setError(new ApiRequestError(400, "Invalid request", { reference: [referenceError] }));
+      return;
+    }
+
     const payload = client
       ? updatePayload(client, draft)
       : createBody(draft, contacts);
@@ -125,20 +132,19 @@ export function ClientForm({
             setName(event.target.value);
           }}
         />
-        {client ? (
-          <TextField
-            id="client-reference"
-            name="reference"
-            label="Reference"
-            maxLength={200}
-            value={reference}
-            disabled={pending}
-            messages={fieldErrors.reference}
-            onChange={(event) => {
-              setReference(event.target.value);
-            }}
-          />
-        ) : null}
+        <TextField
+          id="client-reference"
+          name="reference"
+          label="Reference"
+          required
+          maxLength={200}
+          value={reference}
+          disabled={pending}
+          messages={fieldErrors.reference}
+          onChange={(event) => {
+            setReference(event.target.value);
+          }}
+        />
         <AddressFields
           line1={line1}
           line2={line2}
@@ -447,6 +453,7 @@ function updateContact(
 function createBody(
   draft: {
     name: string;
+    reference: string;
     line1: string;
     line2: string;
     city: string;
@@ -503,6 +510,7 @@ function createBody(
 
   return {
     name: draft.name.trim(),
+    reference: draft.reference.trim(),
     address,
     ...(filled.length > 0 ? { contacts: filled } : {}),
   };
@@ -523,11 +531,11 @@ function updatePayload(
 ) {
   const payload: {
     name?: string;
-    reference?: string | null;
+    reference?: string;
     address?: Record<string, string | null>;
   } = {};
   const name = draft.name.trim();
-  const reference = emptyToNull(draft.reference);
+  const reference = draft.reference.trim();
 
   if (name !== client.name) {
     payload.name = name;
@@ -596,6 +604,20 @@ function changedAddress(
   }
 
   return Object.keys(address).length > 0 ? address : null;
+}
+
+function referenceErrorMessage(value: string): string | null {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "Enter a reference.";
+  }
+
+  if (trimmed.length > 200) {
+    return "Enter a reference up to 200 characters.";
+  }
+
+  return null;
 }
 
 function emptyToNull(value: string): string | null {

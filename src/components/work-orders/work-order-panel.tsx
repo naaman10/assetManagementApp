@@ -99,8 +99,8 @@ export function WorkOrderPanel({
   }
 
   const columns = assetId
-    ? ["Title", "Type", "Priority", "Status", "Due date"]
-    : ["Title", "Client", "Asset", "Type", "Priority", "Status", "Due date"];
+    ? ["Reference", "Title", "Type", "Priority", "Status", "Due date"]
+    : ["Reference", "Title", "Client", "Asset", "Type", "Priority", "Status", "Due date"];
 
   return (
     <section>
@@ -130,6 +130,7 @@ export function WorkOrderPanel({
         <DataTable columns={columns}>
           {orders.workOrders.map((order) => (
             <tr key={order.id} className="hover:bg-gray-50">
+              <td className="px-5 py-4 text-sm text-gray-500">{order.reference}</td>
               <td className="px-5 py-4">
                 <button
                   type="button"
@@ -323,6 +324,15 @@ function WorkOrderForm({
   const fields = (
     <div className="grid gap-5">
       <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
+      {order ? (
+        <TextField
+          id="work-order-reference"
+          label="Reference"
+          value={order.reference}
+          disabled
+          readOnly
+        />
+      ) : null}
       <TextField
         id="work-order-title"
         name="title"
@@ -468,7 +478,9 @@ function WorkOrderForm({
               id="work-order-schedule"
               types={scheduleOptions.map((schedule) => ({
                 id: schedule.id,
-                name: schedule.name,
+                name: schedule.reference
+                  ? `${schedule.reference} · ${schedule.name}`
+                  : schedule.name,
                 code: "",
               }))}
               value={scheduleId}
@@ -871,18 +883,26 @@ function assigneeOptions(
 }
 
 function scheduleChoices(
-  schedules: { id: string; name: string }[],
+  schedules: { id: string; reference: string; name: string }[],
   order: WorkOrder | null,
   assetId: string,
 ) {
-  const options = schedules.map((schedule) => ({ id: schedule.id, name: schedule.name }));
+  const options = schedules.map((schedule) => ({
+    id: schedule.id,
+    reference: schedule.reference,
+    name: schedule.name,
+  }));
 
   if (
     order?.schedule &&
     order.assetId === assetId &&
     !options.some((schedule) => schedule.id === order.schedule?.id)
   ) {
-    options.push(order.schedule);
+    options.push({
+      id: order.schedule.id,
+      reference: order.schedule.reference ?? "",
+      name: order.schedule.name,
+    });
   }
 
   return options;
