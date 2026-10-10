@@ -16,6 +16,14 @@ export type HistoryWorkOrder = {
   title: string;
 };
 
+export type MaintenanceHistoryPhoto = {
+  id: string;
+  url: string;
+  contentType: string;
+  createdAt: string;
+  caption: string | null;
+};
+
 export type MaintenanceHistory = {
   id: string;
   assetId: string;
@@ -39,7 +47,13 @@ export type MaintenanceHistory = {
   otherCost: number | null;
   nextRecommendedDate: string | null;
   notes: string | null;
+  photos: MaintenanceHistoryPhoto[];
 };
+
+export const MAX_HISTORY_PHOTOS = 20;
+export const MAX_HISTORY_PHOTO_BYTES = 10 * 1024 * 1024;
+export const HISTORY_PHOTO_LIMIT_MESSAGE =
+  "A maintenance history record can have at most 20 photos.";
 
 export type MaintenanceHistoryList = {
   maintenanceHistoryCount: number;
@@ -102,7 +116,85 @@ function parseMaintenanceHistory(value: unknown): MaintenanceHistory {
     otherCost: optionalNumber(record, "otherCost"),
     nextRecommendedDate: optionalString(record, "nextRecommendedDate"),
     notes: optionalString(record, "notes"),
+    photos: parsePhotos(record.photos),
   };
+}
+
+function parsePhotos(value: unknown): MaintenanceHistoryPhoto[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map(parsePhoto);
+}
+
+function parsePhoto(value: unknown): MaintenanceHistoryPhoto {
+  const record = objectRecord(value, "photo");
+
+  return {
+    id: requiredString(record, "id"),
+    url: requiredString(record, "url"),
+    contentType: requiredString(record, "contentType"),
+    createdAt: requiredString(record, "createdAt"),
+    caption: optionalString(record, "caption"),
+  };
+}
+
+export function safePhotoUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function photoFileProblem(bytes: Uint8Array, size: number): string | null {
+  if (!isPhotoImage(bytes)) {
+    return "Photo must be a JPEG, PNG, or WebP image.";
+  }
+
+  if (size > MAX_HISTORY_PHOTO_BYTES) {
+    return "Photo must be 10 MB or smaller.";
+  }
+
+  return null;
+}
+
+function isPhotoImage(bytes: Uint8Array): boolean {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return true;
+  }
+
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return true;
+  }
+
+  return (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  );
 }
 
 function parseMaintenanceType(value: unknown): HistoryMaintenanceType {

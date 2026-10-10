@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { Modal } from "@/components/modal";
 import {
@@ -16,12 +16,17 @@ import {
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
 import { parseLeadUsers } from "@/lib/audits";
 import {
+  HISTORY_PHOTO_LIMIT_MESSAGE,
+  MAX_HISTORY_PHOTOS,
   parseMaintenanceHistoryBody,
+  photoFileProblem,
+  safePhotoUrl,
   type HistoryMaintenanceType,
   type HistoryPerformer,
   type HistoryWorkOrder,
   type MaintenanceHistory,
   type MaintenanceHistoryList,
+  type MaintenanceHistoryPhoto,
 } from "@/lib/maintenance-history";
 import { parseMaintenanceTypeList, type MaintenanceType } from "@/lib/maintenance-types";
 import { type WorkOrderList } from "@/lib/work-orders";
@@ -157,28 +162,575 @@ export function MaintenanceHistoryPanel({
           title={open === "create" ? "Add maintenance history" : open.referenceNumber}
           onClose={closeModal}
         >
-          <HistoryForm
-            key={open === "create" ? "create" : open.id}
-            assetId={assetId}
-            record={open === "create" ? null : open}
-            workOrders={workOrders}
-            canEdit={canEdit}
-            canPickTypes={canPickTypes}
-            onCancel={closeModal}
-            onSaved={async () => {
-              closeModal();
-              await onReload();
-            }}
-            onMissing={async () => {
-              closeModal();
-              await onReload();
-            }}
-            onAssetMissing={onAssetMissing}
-          />
+          {open === "create" ? (
+            <HistoryForm
+              key="create"
+              assetId={assetId}
+              record={null}
+              workOrders={workOrders}
+              canEdit={canEdit}
+              canPickTypes={canPickTypes}
+              onCancel={closeModal}
+              onSaved={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onMissing={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onAssetMissing={onAssetMissing}
+            />
+          ) : (
+            <HistoryRecord
+              key={open.id}
+              assetId={assetId}
+              record={open}
+              workOrders={workOrders}
+              canEdit={canEdit}
+              canPickTypes={canPickTypes}
+              onRecord={setOpen}
+              onCancel={closeModal}
+              onSaved={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onMissing={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onAssetMissing={onAssetMissing}
+            />
+          )}
         </Modal>
       ) : null}
     </section>
   );
+}
+
+function HistoryRecord({
+  assetId,
+  record,
+  workOrders,
+  canEdit,
+  canPickTypes,
+  onRecord,
+  onCancel,
+  onSaved,
+  onMissing,
+  onAssetMissing,
+}: {
+  assetId: string;
+  record: MaintenanceHistory;
+  workOrders: WorkOrderList | null;
+  canEdit: boolean;
+  canPickTypes: boolean;
+  onRecord: (record: MaintenanceHistory) => void;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+  onMissing: () => Promise<void>;
+  onAssetMissing: () => void;
+}) {
+  const tablistId = useId();
+  const [tab, setTab] = useState<"details" | "photos">("details");
+  const tabs = [
+    ["details", "Details"],
+    ["photos", "Photos"],
+  ] as const;
+
+  return (
+    <div>
+      <div
+        role="tablist"
+        aria-label="Maintenance history"
+        className="flex flex-wrap gap-6 border-b border-gray-200"
+      >
+        {tabs.map(([itemId, label]) => {
+          const selected = tab === itemId;
+
+          return (
+            <button
+              key={itemId}
+              type="button"
+              role="tab"
+              id={`${tablistId}-${itemId}`}
+              aria-selected={selected}
+              aria-controls={`${tablistId}-${itemId}-panel`}
+              onClick={() => {
+                setTab(itemId);
+              }}
+              className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                selected
+                  ? "border-brand-500 text-brand-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        role="tabpanel"
+        id={`${tablistId}-details-panel`}
+        aria-labelledby={`${tablistId}-details`}
+        hidden={tab !== "details"}
+        className="mt-6"
+      >
+        <HistoryForm
+          assetId={assetId}
+          record={record}
+          workOrders={workOrders}
+          canEdit={canEdit}
+          canPickTypes={canPickTypes}
+          onCancel={onCancel}
+          onSaved={onSaved}
+          onMissing={onMissing}
+          onAssetMissing={onAssetMissing}
+        />
+      </div>
+      <div
+        role="tabpanel"
+        id={`${tablistId}-photos-panel`}
+        aria-labelledby={`${tablistId}-photos`}
+        hidden={tab !== "photos"}
+        className="mt-6"
+      >
+        <HistoryPhotos
+          record={record}
+          canEdit={canEdit}
+          onRecord={onRecord}
+          onMissing={onMissing}
+        />
+      </div>
+    </div>
+  );
+}
+
+function HistoryPhotos({
+  record,
+  canEdit,
+  onRecord,
+  onMissing,
+}: {
+  record: MaintenanceHistory;
+  canEdit: boolean;
+  onRecord: (record: MaintenanceHistory) => void;
+  onMissing: () => Promise<void>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const refreshed = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function reloadRecord(): Promise<boolean> {
+    try {
+      const next = parseMaintenanceHistoryBody(
+        await apiRequest(`/api/maintenance-history/${record.id}`),
+      );
+      onRecord(next);
+      return true;
+    } catch (caught) {
+      const apiError = asApiError(caught);
+
+      if (apiError.status === 404) {
+        await onMissing();
+        return false;
+      }
+
+      throw apiError;
+    }
+  }
+
+  async function uploadFiles(files: File[]) {
+    if (pending || files.length === 0) {
+      return;
+    }
+
+    setPending(true);
+    setMessage(null);
+    let uploaded = 0;
+    let problem: string | null = null;
+
+    try {
+      for (const file of files) {
+        if (record.photos.length + uploaded >= MAX_HISTORY_PHOTOS) {
+          problem = HISTORY_PHOTO_LIMIT_MESSAGE;
+          break;
+        }
+
+        const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+        const fileProblem = photoFileProblem(bytes, file.size);
+
+        if (fileProblem) {
+          problem = fileProblem;
+          break;
+        }
+
+        const body = new FormData();
+        body.set("photo", file);
+
+        try {
+          await apiRequest(`/api/maintenance-history/${record.id}/photos`, {
+            method: "POST",
+            body,
+          });
+          uploaded += 1;
+        } catch (caught) {
+          const apiError = asApiError(caught);
+
+          if (apiError.status === 404) {
+            await onMissing();
+            return;
+          }
+
+          problem = apiError.message;
+          break;
+        }
+      }
+
+      if (uploaded > 0) {
+        const reloaded = await reloadRecord();
+
+        if (!reloaded) {
+          return;
+        }
+      }
+
+      setMessage(problem);
+    } catch (caught) {
+      const apiError = asApiError(caught);
+
+      if (apiError.status === 404) {
+        await onMissing();
+        return;
+      }
+
+      setMessage(problem ?? apiError.message);
+    } finally {
+      setPending(false);
+      setDragging(false);
+
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      {canEdit ? (
+        <div
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (!pending) {
+              setDragging(true);
+            }
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setDragging(false);
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            void uploadFiles([...event.dataTransfer.files]);
+          }}
+          className={`rounded-lg border border-dashed px-4 py-6 text-center ${
+            dragging ? "border-brand-500 bg-gray-50" : "border-gray-300"
+          }`}
+        >
+          <p className="text-sm text-gray-500">Drop photos here, or choose files</p>
+          <label className={`${secondaryButtonClassName} mt-3`}>
+            Choose photos
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              multiple
+              disabled={pending}
+              className="sr-only"
+              onChange={(event) => {
+                void uploadFiles([...(event.target.files ?? [])]);
+              }}
+            />
+          </label>
+          {pending ? <p className="mt-3 text-sm text-gray-500">Uploading…</p> : null}
+        </div>
+      ) : null}
+      <FormBanner message={message} />
+      {record.photos.length === 0 ? (
+        <p className="text-sm text-gray-500">No photos yet.</p>
+      ) : (
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {record.photos.map((photo) => (
+            <HistoryPhoto
+              key={photo.id}
+              photo={photo}
+              onReload={() => {
+                if (refreshed.current) {
+                  return Promise.resolve(false);
+                }
+
+                refreshed.current = true;
+                return reloadRecord();
+              }}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function HistoryPhoto({
+  photo,
+  onReload,
+}: {
+  photo: MaintenanceHistoryPhoto;
+  onReload: () => Promise<boolean>;
+}) {
+  const source = safePhotoUrl(photo.url);
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  const [enlarged, setEnlarged] = useState(false);
+  const alt = photo.caption ?? "Maintenance photo";
+  const filename = photoFilename(photo.contentType);
+
+  function onError() {
+    if (!source) {
+      return;
+    }
+
+    void onReload()
+      .then((reloaded) => {
+        if (!reloaded) {
+          setBrokenUrl(source);
+        }
+      })
+      .catch(() => {
+        setBrokenUrl(source);
+      });
+  }
+
+  if (!source || brokenUrl === source) {
+    if (!photo.caption) {
+      return null;
+    }
+
+    return (
+      <li>
+        <p className="text-sm text-gray-500">{photo.caption}</p>
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <PhotoFrame source={source} alt={alt} filename={filename} onOpen={() => setEnlarged(true)} onError={onError} />
+      {photo.caption ? <p className="mt-2 text-sm text-gray-500">{photo.caption}</p> : null}
+      {enlarged ? (
+        <PhotoView
+          source={source}
+          alt={alt}
+          filename={filename}
+          onClose={() => setEnlarged(false)}
+          onError={onError}
+        />
+      ) : null}
+    </li>
+  );
+}
+
+function PhotoFrame({
+  source,
+  alt,
+  filename,
+  onOpen,
+  onError,
+}: {
+  source: string;
+  alt: string;
+  filename: string;
+  onOpen: () => void;
+  onError: () => void;
+}) {
+  return (
+    <div className="group relative">
+      <button type="button" aria-label="View photo" className="block w-full cursor-zoom-in text-left" onClick={onOpen}>
+        <PhotoImage source={source} alt={alt} className="h-44 w-full rounded-lg object-cover" onError={onError} />
+      </button>
+      <DownloadPhotoButton source={source} filename={filename} />
+    </div>
+  );
+}
+
+function PhotoView({
+  source,
+  alt,
+  filename,
+  onClose,
+  onError,
+}: {
+  source: string;
+  alt: string;
+  filename: string;
+  onClose: () => void;
+  onError: () => void;
+}) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (!dialog || dialog.open) {
+      return;
+    }
+
+    dialog.showModal();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      className="m-auto h-fit w-[min(64rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40"
+      onCancel={(event) => {
+        event.preventDefault();
+        onCloseRef.current();
+      }}
+      onMouseDown={(event) => {
+        if (event.target === dialogRef.current) {
+          onCloseRef.current();
+        }
+      }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <h2 id={titleId} className="text-lg font-semibold text-gray-800">
+          {alt}
+        </h2>
+        <button
+          type="button"
+          aria-label="Close"
+          className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+          onClick={() => {
+            onCloseRef.current();
+          }}
+        >
+          ×
+        </button>
+      </div>
+      <div className="mt-6 flex justify-center">
+        <div className="group relative max-w-full">
+          <PhotoImage
+            source={source}
+            alt={alt}
+            className="max-h-[70vh] max-w-full rounded-lg object-contain"
+            onError={onError}
+          />
+          <DownloadPhotoButton source={source} filename={filename} />
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+function PhotoImage({
+  source,
+  alt,
+  className,
+  onError,
+}: {
+  source: string;
+  alt: string;
+  className: string;
+  onError: () => void;
+}) {
+  return (
+    // Signed photo URLs expire, so they are not run through the image optimizer.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={source} alt={alt} className={className} onError={onError} />
+  );
+}
+
+function DownloadPhotoButton({ source, filename }: { source: string; filename: string }) {
+  return (
+    <button
+      type="button"
+      aria-label="Download photo"
+      className="absolute top-2 right-2 grid size-8 place-items-center rounded-lg bg-white text-gray-700 opacity-0 shadow-theme-xs pointer-events-none transition group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+      onClick={(event) => {
+        event.stopPropagation();
+        void downloadPhoto(source, filename);
+      }}
+    >
+      <DownloadIcon />
+    </button>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" aria-hidden="true">
+      <path d="M8 2.5v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path
+        d="M5.2 7.2 8 10l2.8-2.8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M3 12.5h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function photoFilename(contentType: string) {
+  if (contentType === "image/png") {
+    return "maintenance-photo.png";
+  }
+
+  if (contentType === "image/webp") {
+    return "maintenance-photo.webp";
+  }
+
+  return "maintenance-photo.jpg";
+}
+
+async function downloadPhoto(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("The photo could not be downloaded.");
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.rel = "noopener";
+    link.target = "_blank";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  }
 }
 
 function HistoryForm({
