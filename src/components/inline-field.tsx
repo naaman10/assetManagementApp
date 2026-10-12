@@ -13,9 +13,19 @@ import {
 import { ApiRequestError, asApiError, type FieldErrors } from "@/lib/api-client";
 import type { Address } from "@/lib/clients";
 
-export function PropertyGrid({ children }: { children: React.ReactNode }) {
+export function PropertyGrid({
+  children,
+  columns = 3,
+}: {
+  children: React.ReactNode;
+  columns?: 2 | 3;
+}) {
   return (
-    <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+    <dl
+      className={`mt-6 grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2${
+        columns === 3 ? " xl:grid-cols-3" : ""
+      }`}
+    >
       {children}
     </dl>
   );
@@ -97,6 +107,7 @@ export function InlineText({
   editable,
   field,
   wide = false,
+  className,
   type = "text",
   maxLength,
   onSave,
@@ -106,6 +117,7 @@ export function InlineText({
   editable: boolean;
   field: string;
   wide?: boolean;
+  className?: string;
   type?: string;
   maxLength?: number;
   onSave: (value: string) => Promise<void>;
@@ -114,7 +126,7 @@ export function InlineText({
   const inputId = useId();
 
   return (
-    <Property label={label} wide={wide}>
+    <Property label={label} wide={wide} className={className}>
       {editable && editor.editing ? (
         <>
           <input
@@ -453,14 +465,16 @@ export function changedAddress(
 export function Property({
   label,
   wide = false,
+  className,
   children,
 }: {
   label: string;
   wide?: boolean;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className={wide ? "sm:col-span-2 xl:col-span-3" : undefined}>
+    <div className={wide ? "sm:col-span-2 xl:col-span-3" : className}>
       <dt className="text-sm text-gray-500">{label}</dt>
       <dd className="mt-1 text-sm font-medium text-gray-800">{children}</dd>
     </div>

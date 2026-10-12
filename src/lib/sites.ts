@@ -72,6 +72,12 @@ export type AssetTypeSummary = {
   name: string;
 };
 
+export type AssetCatalogRef = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 export type Asset = {
   id: string;
   assetRef: string;
@@ -82,6 +88,8 @@ export type Asset = {
   client: NamedClient;
   location: AssetLocation;
   assetType: AssetTypeSummary;
+  bcisRef: AssetCatalogRef | null;
+  bcisSubRef: AssetCatalogRef | null;
 };
 
 export type AssetList = {
@@ -217,6 +225,8 @@ function parseAsset(value: unknown): Asset {
     client: parseNamedClient(record.client),
     location: parseAssetLocation(record.location),
     assetType: parseAssetTypeSummary(record.assetType),
+    bcisRef: parseCatalogRef(record.bcisRef),
+    bcisSubRef: parseCatalogRef(record.bcisSubRef),
   };
 }
 
@@ -237,6 +247,20 @@ function parseAssetLocation(value: unknown): AssetLocation {
     siteId: requiredString(record, "siteId"),
     locationCode: optionalString(record, "locationCode"),
     name: optionalString(record, "name"),
+  };
+}
+
+function parseCatalogRef(value: unknown): AssetCatalogRef | null {
+  if (value == null) {
+    return null;
+  }
+
+  const record = objectRecord(value, "catalog");
+
+  return {
+    id: requiredString(record, "id"),
+    code: requiredString(record, "code"),
+    name: requiredString(record, "name"),
   };
 }
 

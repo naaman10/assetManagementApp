@@ -24,6 +24,8 @@ import {
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
+import { formatBcisRef, parseBcisRefList, type BcisRef } from "@/lib/bcis-refs";
+import { parseBcisSubRefList, type BcisSubRef } from "@/lib/bcis-sub-refs";
 import {
   parseMaintenanceHistoryList,
   type MaintenanceHistoryList,
@@ -35,6 +37,8 @@ import {
 import { parseWorkOrderList, type WorkOrderList } from "@/lib/work-orders";
 import {
   ASSET_TYPES_VIEW,
+  BCIS_REFS_VIEW,
+  BCIS_SUB_REFS_VIEW,
   CLIENTS_EDIT,
   CLIENTS_VIEW,
   MAINTENANCE_TYPES_VIEW,
@@ -45,6 +49,7 @@ import {
   parseAssetBody,
   parseSiteSummary,
   type Asset,
+  type AssetCatalogRef,
   type AssetStatus,
 } from "@/lib/sites";
 
@@ -75,6 +80,8 @@ function AssetDetailContent({ id }: { id: string }) {
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const canPickTypes = hasPermission(user, ASSET_TYPES_VIEW);
+  const canPickBcisRefs = hasPermission(user, BCIS_REFS_VIEW);
+  const canPickBcisSubRefs = hasPermission(user, BCIS_SUB_REFS_VIEW);
   const canPickMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
   const tablistId = useId();
   const request = useApi(canView ? `/api/assets/${id}` : null, parseAssetBody);
@@ -85,6 +92,14 @@ function AssetDetailContent({ id }: { id: string }) {
   const typesRequest = useApi(
     canView && canEdit && canPickTypes ? "/api/asset-types" : null,
     parseAssetTypeList,
+  );
+  const bcisRefsRequest = useApi(
+    canView && canEdit && canPickBcisRefs ? "/api/bcis-refs" : null,
+    parseBcisRefList,
+  );
+  const bcisSubRefsRequest = useApi(
+    canView && canEdit && canPickBcisSubRefs ? "/api/bcis-sub-refs" : null,
+    parseBcisSubRefList,
   );
   const schedulesRequest = useApi(
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
@@ -217,7 +232,7 @@ function AssetDetailContent({ id }: { id: string }) {
     } catch (error) {
       const apiError = asApiError(error);
 
-      if (apiError.status === 404) {
+      if (apiError.status === 404 && apiError.message === "Asset not found.") {
         router.replace("/sites");
       }
 
@@ -309,12 +324,13 @@ function AssetDetailContent({ id }: { id: string }) {
             await saveAsset({ assetName: assetName || null });
           }}
         />
-        <PropertyGrid>
+        <PropertyGrid columns={2}>
           <InlineText
             label="Reference"
             field="assetRef"
             value={asset.assetRef}
             editable={canEdit}
+            className="sm:col-span-2"
             maxLength={200}
             onSave={async (assetRef) => {
               if (!assetRef) {
@@ -334,6 +350,73 @@ function AssetDetailContent({ id }: { id: string }) {
             typesError={typesRequest.error?.message ?? null}
             onSave={async (assetTypeId) => {
               await saveAsset({ assetTypeId });
+            }}
+          />
+          <InlineSelect
+            label="Status"
+            field="status"
+            value={asset.status}
+            editable={canEdit}
+            options={ASSET_STATUSES.map((status) => ({
+              value: status,
+              label: assetStatusLabel(status),
+            }))}
+            onSave={async (status) => {
+              await saveAsset({ status: status as AssetStatus });
+            }}
+          />
+          <CatalogField
+            id={`asset-${asset.id}-bcis-ref`}
+            label="BCIS Reference"
+            field="bcisRefId"
+            selected={asset.bcisRef}
+            options={bcisRefsRequest.data ?? []}
+            editable={canEdit && canPickBcisRefs}
+            loading={bcisRefsRequest.loading}
+            loadError={bcisRefsRequest.error?.message ?? null}
+            placeholder="Choose a BCIS reference"
+            searchPlaceholder="Search BCIS references"
+            listLabel="BCIS references"
+            loadingLabel="Loading BCIS references…"
+            clearLabel="None"
+            onSave={async (bcisRefId) => {
+              const current = asset.bcisRef?.id ?? null;
+
+              if (bcisRefId === current) {
+                return;
+              }
+
+              await saveAsset({
+                bcisRefId,
+                bcisSubRefId: null,
+              });
+            }}
+          />
+          <CatalogField
+            id={`asset-${asset.id}-bcis-sub-ref`}
+            label="BCIS Sub Reference"
+            field="bcisSubRefId"
+            selected={asset.bcisSubRef}
+            options={(bcisSubRefsRequest.data ?? []).filter(
+              (bcisSubRef) => bcisSubRef.bcisRefId === asset.bcisRef?.id,
+            )}
+            editable={canEdit && canPickBcisSubRefs}
+            loading={bcisSubRefsRequest.loading}
+            loadError={bcisSubRefsRequest.error?.message ?? null}
+            disabled={!asset.bcisRef}
+            placeholder={
+              asset.bcisRef ? "Choose a BCIS sub reference" : "Choose a BCIS reference first"
+            }
+            searchPlaceholder="Search BCIS sub references"
+            listLabel="BCIS sub references"
+            loadingLabel="Loading BCIS sub references…"
+            clearLabel="None"
+            onSave={async (bcisSubRefId) => {
+              if (bcisSubRefId === (asset.bcisSubRef?.id ?? null)) {
+                return;
+              }
+
+              await saveAsset({ bcisSubRefId });
             }}
           />
           <InlineText
@@ -367,19 +450,6 @@ function AssetDetailContent({ id }: { id: string }) {
             maxLength={40}
             onSave={async (unitOfMeasure) => {
               await saveAsset({ unitOfMeasure: unitOfMeasure || null });
-            }}
-          />
-          <InlineSelect
-            label="Status"
-            field="status"
-            value={asset.status}
-            editable={canEdit}
-            options={ASSET_STATUSES.map((status) => ({
-              value: status,
-              label: assetStatusLabel(status),
-            }))}
-            onSave={async (status) => {
-              await saveAsset({ status: status as AssetStatus });
             }}
           />
         </PropertyGrid>
@@ -569,6 +639,97 @@ function AssetTypeField({
         </>
       ) : (
         <span>{asset.assetType.name}</span>
+      )}
+    </Property>
+  );
+}
+
+function CatalogField({
+  id,
+  label,
+  field,
+  selected,
+  options,
+  editable,
+  loading,
+  loadError,
+  disabled = false,
+  placeholder,
+  searchPlaceholder,
+  listLabel,
+  loadingLabel,
+  clearLabel,
+  onSave,
+}: {
+  id: string;
+  label: string;
+  field: string;
+  selected: AssetCatalogRef | null;
+  options: Array<BcisRef | BcisSubRef>;
+  editable: boolean;
+  loading: boolean;
+  loadError: string | null;
+  disabled?: boolean;
+  placeholder: string;
+  searchPlaceholder: string;
+  listLabel: string;
+  loadingLabel: string;
+  clearLabel: string;
+  onSave: (id: string | null) => Promise<void>;
+}) {
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const listed = options.filter((option) => option.isActive || option.id === selected?.id);
+  const choices =
+    selected && !listed.some((option) => option.id === selected.id) ? [selected, ...listed] : listed;
+
+  return (
+    <Property label={label}>
+      {editable ? (
+        <>
+          <AssetTypePicker
+            id={id}
+            types={choices}
+            value={selected?.id ?? ""}
+            disabled={pending || disabled}
+            loading={loading}
+            placeholder={placeholder}
+            searchPlaceholder={searchPlaceholder}
+            listLabel={listLabel}
+            loadingLabel={loadingLabel}
+            clearLabel={disabled ? undefined : clearLabel}
+            onChange={(nextId) => {
+              const value = nextId || null;
+
+              if (value === (selected?.id ?? null) || pending) {
+                return;
+              }
+
+              setPending(true);
+              setError(null);
+              void onSave(value)
+                .catch((caught) => {
+                  setError(asApiError(caught));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
+            }}
+          />
+          {loadError ? (
+            <p className="mt-1.5 text-sm text-error-500" role="alert">
+              {loadError}
+            </p>
+          ) : null}
+          {error ? (
+            <>
+              <FormBanner message={bannerMessage(error.message, error.fieldErrors)} />
+              <FieldMessages messages={error.fieldErrors[field]} />
+            </>
+          ) : null}
+        </>
+      ) : (
+        <span>{selected ? formatBcisRef(selected) : "—"}</span>
       )}
     </Property>
   );
