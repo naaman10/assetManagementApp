@@ -208,7 +208,7 @@ export function MaintenanceHistoryPanel({
   );
 }
 
-function HistoryRecord({
+export function HistoryRecord({
   assetId,
   record,
   workOrders,
@@ -733,12 +733,24 @@ async function downloadPhoto(url: string, filename: string) {
   }
 }
 
-function HistoryForm({
+export type HistoryDefaults = {
+  maintenanceTypeId?: string;
+  maintenanceType?: HistoryMaintenanceType | null;
+  performedBy?: string;
+  performer?: HistoryPerformer | null;
+  workOrderId?: string;
+  performedAt?: string | null;
+  conditionBefore?: string;
+  lockWorkOrder?: boolean;
+};
+
+export function HistoryForm({
   assetId,
   record,
   workOrders,
   canEdit,
   canPickTypes,
+  defaults,
   onCancel,
   onSaved,
   onMissing,
@@ -749,6 +761,7 @@ function HistoryForm({
   workOrders: WorkOrderList | null;
   canEdit: boolean;
   canPickTypes: boolean;
+  defaults?: HistoryDefaults;
   onCancel: () => void;
   onSaved: () => Promise<void>;
   onMissing: () => Promise<void>;
@@ -760,16 +773,22 @@ function HistoryForm({
     parseMaintenanceTypeList,
   );
   const usersRequest = useApi(canEdit ? "/api/clients/users" : null, parseLeadUsers);
-  const [maintenanceTypeId, setMaintenanceTypeId] = useState(record?.maintenanceTypeId ?? "");
+  const [maintenanceTypeId, setMaintenanceTypeId] = useState(
+    record?.maintenanceTypeId ?? defaults?.maintenanceTypeId ?? "",
+  );
   const [workDescription, setWorkDescription] = useState(record?.workDescription ?? "");
-  const [workOrderId, setWorkOrderId] = useState(record?.workOrderId ?? "");
-  const [performedAt, setPerformedAt] = useState(toDateTimeLocal(record?.performedAt ?? null));
+  const [workOrderId, setWorkOrderId] = useState(record?.workOrderId ?? defaults?.workOrderId ?? "");
+  const [performedAt, setPerformedAt] = useState(
+    toDateTimeLocal(record?.performedAt ?? defaults?.performedAt ?? null),
+  );
   const [completedAt, setCompletedAt] = useState(toDateTimeLocal(record?.completedAt ?? null));
-  const [performedBy, setPerformedBy] = useState(record?.performedBy ?? "");
+  const [performedBy, setPerformedBy] = useState(record?.performedBy ?? defaults?.performedBy ?? "");
   const [findings, setFindings] = useState(record?.findings ?? "");
   const [actionsTaken, setActionsTaken] = useState(record?.actionsTaken ?? "");
   const [notes, setNotes] = useState(record?.notes ?? "");
-  const [conditionBefore, setConditionBefore] = useState(record?.conditionBefore ?? "");
+  const [conditionBefore, setConditionBefore] = useState(
+    record?.conditionBefore ?? defaults?.conditionBefore ?? "",
+  );
   const [conditionAfter, setConditionAfter] = useState(record?.conditionAfter ?? "");
   const [outcome, setOutcome] = useState(record?.outcome ?? "");
   const [labourCost, setLabourCost] = useState(costValue(record?.labourCost ?? null));
@@ -781,8 +800,12 @@ function HistoryForm({
   const fieldErrors = error?.fieldErrors ?? {};
   const disabled = pending || !canEdit;
   const hidePerformerPicker = usersRequest.error?.status === 403;
-  const typeOptions = maintenanceTypeOptions(typesRequest.data ?? [], record);
+  const typeOptions = listedTypes(
+    maintenanceTypeOptions(typesRequest.data ?? [], record),
+    defaults?.maintenanceType ?? null,
+  );
   const orderOptions = workOrderOptions(workOrders, record);
+  const lockWorkOrder = Boolean(creating && defaults?.lockWorkOrder);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -791,13 +814,17 @@ function HistoryForm({
       return;
     }
 
+    const includePerformer =
+      !hidePerformerPicker || (!record && Boolean(defaults?.performedBy));
     const draft: HistoryDraft = {
       maintenanceTypeId,
       workDescription,
       workOrderId,
       performedAt,
       completedAt,
-      performedBy: hidePerformerPicker ? (record?.performedBy ?? "") : performedBy,
+      performedBy: hidePerformerPicker
+        ? (record?.performedBy ?? defaults?.performedBy ?? "")
+        : performedBy,
       findings,
       actionsTaken,
       notes,
@@ -818,7 +845,7 @@ function HistoryForm({
 
     const payload = record
       ? updatePayload(record, draft, canPickTypes, !hidePerformerPicker)
-      : createPayload(draft, !hidePerformerPicker);
+      : createPayload(draft, includePerformer);
 
     if (!payload) {
       setError(new ApiRequestError(400, "No changes were provided."));
@@ -896,10 +923,12 @@ function HistoryForm({
           ) : null}
           <FieldMessages messages={fieldErrors.maintenanceTypeId} />
         </div>
-      ) : record ? (
+      ) : record || defaults?.maintenanceType ? (
         <div>
           <p className="text-sm font-medium text-gray-700">Maintenance type</p>
-          <p className="mt-1.5 text-sm text-gray-800">{record.maintenanceType.name}</p>
+          <p className="mt-1.5 text-sm text-gray-800">
+            {record?.maintenanceType.name ?? defaults?.maintenanceType?.name}
+          </p>
         </div>
       ) : null}
       <TextArea
@@ -920,13 +949,13 @@ function HistoryForm({
           id="history-work-order"
           name="workOrderId"
           value={workOrderId}
-          disabled={disabled || !workOrders}
+          disabled={disabled || !workOrders || lockWorkOrder}
           onChange={(event) => {
             setWorkOrderId(event.target.value);
           }}
           className={inputClassName}
         >
-          <option value="">None</option>
+          {lockWorkOrder ? null : <option value="">None</option>}
           {orderOptions.map((order) => (
             <option key={order.id} value={order.id}>
               {order.reference} · {order.title}
@@ -973,7 +1002,7 @@ function HistoryForm({
           </label>
           <AssetTypePicker
             id="history-performer"
-            types={performerOptions(usersRequest.data ?? [], record)}
+            types={performerOptions(usersRequest.data ?? [], record, defaults?.performer ?? null)}
             value={performedBy}
             disabled={disabled}
             loading={usersRequest.loading}
@@ -991,10 +1020,12 @@ function HistoryForm({
           ) : null}
           <FieldMessages messages={fieldErrors.performedBy} />
         </div>
-      ) : record ? (
+      ) : record || defaults?.performer ? (
         <div>
           <p className="text-sm font-medium text-gray-700">Performed by</p>
-          <p className="mt-1.5 text-sm text-gray-800">{performerLabel(record.performer)}</p>
+          <p className="mt-1.5 text-sm text-gray-800">
+            {performerLabel(record?.performer ?? defaults?.performer ?? null)}
+          </p>
         </div>
       ) : null}
       <TextArea
@@ -1412,19 +1443,32 @@ function workOrderOptions(
 function performerOptions(
   users: { id: string; email: string; name: string | null }[],
   record: MaintenanceHistory | null,
+  extra: HistoryPerformer | null,
 ) {
   const options = users.map((user) => ({
     id: user.id,
     name: user.name ?? user.email,
     code: "",
   }));
+  const performer = record?.performer ?? extra;
 
-  if (record?.performer && !options.some((option) => option.id === record.performer?.id)) {
+  if (performer && !options.some((option) => option.id === performer.id)) {
     options.unshift({
-      id: record.performer.id,
-      name: record.performer.name ?? record.performer.email,
+      id: performer.id,
+      name: performer.name ?? performer.email,
       code: "",
     });
+  }
+
+  return options;
+}
+
+function listedTypes(
+  options: HistoryMaintenanceType[],
+  extra: HistoryMaintenanceType | null,
+): HistoryMaintenanceType[] {
+  if (extra && !options.some((type) => type.id === extra.id)) {
+    return [...options, extra];
   }
 
   return options;

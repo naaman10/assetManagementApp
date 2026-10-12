@@ -540,6 +540,7 @@ function AssetDetailContent({ id }: { id: string }) {
             canCreate={canPickMaintenanceTypes}
             canEdit={canPickMaintenanceTypes}
             onReload={reloadWorkOrders}
+            onHistoryChange={reloadHistory}
           />
         </div>
         <div

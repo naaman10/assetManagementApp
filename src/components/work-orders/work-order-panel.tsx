@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
+import { HistoryForm, HistoryRecord } from "@/components/assets/maintenance-history";
 import { Modal } from "@/components/modal";
 import {
   DataTable,
@@ -13,6 +14,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/form-controls";
+import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
 import {
   locationOptionLabel,
@@ -22,12 +24,19 @@ import {
   parseFinderLocations,
   parseLeadUsers,
 } from "@/lib/audits";
+import {
+  parseMaintenanceHistoryList,
+  type MaintenanceHistory,
+  type MaintenanceHistoryList,
+} from "@/lib/maintenance-history";
 import { parseMaintenanceTypeList, type MaintenanceType } from "@/lib/maintenance-types";
 import { parseMaintenanceScheduleList } from "@/lib/maintenance-schedules";
+import { CLIENTS_EDIT, MAINTENANCE_TYPES_VIEW, hasPermission } from "@/lib/session";
 import {
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_STATUSES,
   parseWorkOrderBody,
+  parseWorkOrderList,
   workOrderAssetLabel,
   workOrderAssigneeLabel,
   workOrderPriorityLabel,
@@ -49,6 +58,7 @@ export function WorkOrderPanel({
   canCreate,
   canEdit,
   onReload,
+  onHistoryChange,
   requestedOrderId = null,
   requestedOrder = null,
   onRequestedOrderClose,
@@ -61,6 +71,7 @@ export function WorkOrderPanel({
   canCreate: boolean;
   canEdit: boolean;
   onReload: () => Promise<void>;
+  onHistoryChange?: () => Promise<void>;
   requestedOrderId?: string | null;
   requestedOrder?: WorkOrder | null;
   onRequestedOrderClose?: () => void;
@@ -169,26 +180,365 @@ export function WorkOrderPanel({
           title={open === "create" ? "New work order" : open.title}
           onClose={closeModal}
         >
-          <WorkOrderForm
-            key={open === "create" ? "create" : open.id}
-            order={open === "create" ? null : open}
-            fixedAssetId={assetId}
-            fixedAssetLabel={assetLabel}
-            canEdit={canEdit}
-            onCancel={closeModal}
-            onSaved={async () => {
-              closeModal();
-              await onReload();
-            }}
-            onMissing={async () => {
-              closeModal();
-              await onReload();
-            }}
-          />
+          {open === "create" ? (
+            <WorkOrderForm
+              key="create"
+              order={null}
+              fixedAssetId={assetId}
+              fixedAssetLabel={assetLabel}
+              canEdit={canEdit}
+              onCancel={closeModal}
+              onSaved={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onMissing={async () => {
+                closeModal();
+                await onReload();
+              }}
+            />
+          ) : (
+            <WorkOrderRecord
+              key={open.id}
+              order={open}
+              fixedAssetId={assetId}
+              fixedAssetLabel={assetLabel}
+              canEdit={canEdit}
+              onCancel={closeModal}
+              onSaved={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onMissing={async () => {
+                closeModal();
+                await onReload();
+              }}
+              onHistoryChange={onHistoryChange}
+            />
+          )}
         </Modal>
       ) : null}
     </section>
   );
+}
+
+function WorkOrderRecord({
+  order,
+  fixedAssetId,
+  fixedAssetLabel,
+  canEdit,
+  onCancel,
+  onSaved,
+  onMissing,
+  onHistoryChange,
+}: {
+  order: WorkOrder;
+  fixedAssetId?: string;
+  fixedAssetLabel?: string;
+  canEdit: boolean;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+  onMissing: () => Promise<void>;
+  onHistoryChange?: () => Promise<void>;
+}) {
+  const tablistId = useId();
+  const [tab, setTab] = useState<"details" | "history">("details");
+  const tabs = [
+    ["details", "Details"],
+    ["history", "Maintenance history"],
+  ] as const;
+
+  return (
+    <div>
+      <div
+        role="tablist"
+        aria-label="Work order"
+        className="flex flex-wrap gap-6 border-b border-gray-200"
+      >
+        {tabs.map(([itemId, label]) => {
+          const selected = tab === itemId;
+
+          return (
+            <button
+              key={itemId}
+              type="button"
+              role="tab"
+              id={`${tablistId}-${itemId}`}
+              aria-selected={selected}
+              aria-controls={`${tablistId}-${itemId}-panel`}
+              onClick={() => {
+                setTab(itemId);
+              }}
+              className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                selected
+                  ? "border-brand-500 text-brand-500"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        role="tabpanel"
+        id={`${tablistId}-details-panel`}
+        aria-labelledby={`${tablistId}-details`}
+        hidden={tab !== "details"}
+        className="mt-6"
+      >
+        <WorkOrderForm
+          order={order}
+          fixedAssetId={fixedAssetId}
+          fixedAssetLabel={fixedAssetLabel}
+          canEdit={canEdit}
+          onCancel={onCancel}
+          onSaved={onSaved}
+          onMissing={onMissing}
+        />
+      </div>
+      <div
+        role="tabpanel"
+        id={`${tablistId}-history-panel`}
+        aria-labelledby={`${tablistId}-history`}
+        hidden={tab !== "history"}
+        className="mt-6"
+      >
+        <WorkOrderHistory
+          order={order}
+          onCancel={onCancel}
+          onHistoryChange={onHistoryChange}
+          onMissing={onMissing}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WorkOrderHistory({
+  order,
+  onCancel,
+  onHistoryChange,
+  onMissing,
+}: {
+  order: WorkOrder;
+  onCancel: () => void;
+  onHistoryChange?: () => Promise<void>;
+  onMissing: () => Promise<void>;
+}) {
+  const { user } = useSession();
+  const canEditHistory = hasPermission(user, CLIENTS_EDIT);
+  const canPickTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
+  const request = useApi(
+    `/api/assets/${order.assetId}/maintenance-history`,
+    parseMaintenanceHistoryList,
+  );
+  const ordersRequest = useApi(
+    `/api/assets/${order.assetId}/work-orders`,
+    parseWorkOrderList,
+  );
+  const [saved, setSaved] = useState<MaintenanceHistoryList | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [performedAt, setPerformedAt] = useState<string | null>(null);
+  const [linkId, setLinkId] = useState("");
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const records = saved ?? request.data;
+  const linked = records?.maintenanceHistories.find((record) => record.workOrderId === order.id) ?? null;
+  const available =
+    records?.maintenanceHistories.filter((record) => record.workOrderId == null) ?? [];
+
+  async function reload() {
+    const next = parseMaintenanceHistoryList(
+      await apiRequest(`/api/assets/${order.assetId}/maintenance-history`),
+    );
+    setSaved(next);
+    await onHistoryChange?.();
+  }
+
+  async function linkHistory() {
+    if (!linkId || pending) {
+      return;
+    }
+
+    setPending(true);
+    setError(null);
+
+    try {
+      await apiRequest(`/api/maintenance-history/${linkId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ workOrderId: order.id }),
+      });
+      setLinkId("");
+      await reload();
+      setPending(false);
+    } catch (caught) {
+      const apiError = asApiError(caught);
+
+      if (apiError.status === 404 && apiError.message === "Asset not found.") {
+        await onMissing();
+        return;
+      }
+
+      setError(apiError);
+      setPending(false);
+    }
+  }
+
+  if (!records) {
+    if (request.loading) {
+      return <p className="text-sm text-muted">Loading maintenance history…</p>;
+    }
+
+    return (
+      <p className="text-sm leading-6 text-ink" role="alert">
+        {request.error?.message ?? "Maintenance history could not be loaded."}
+      </p>
+    );
+  }
+
+  if (linked) {
+    return (
+      <HistoryRecord
+        key={linked.id}
+        assetId={order.assetId}
+        record={linked}
+        workOrders={ordersRequest.data ?? { workOrderCount: 1, workOrders: [order] }}
+        canEdit={canEditHistory}
+        canPickTypes={canPickTypes}
+        onRecord={(next) => {
+          setSaved((current) => replaceHistory(current ?? records, next));
+        }}
+        onCancel={onCancel}
+        onSaved={async () => {
+          await reload();
+        }}
+        onMissing={onMissing}
+        onAssetMissing={() => {
+          void onMissing();
+        }}
+      />
+    );
+  }
+
+  if (creating && performedAt) {
+    return (
+      <HistoryForm
+        key={performedAt}
+        assetId={order.assetId}
+        record={null}
+        workOrders={{ workOrderCount: 1, workOrders: [order] }}
+        canEdit={canEditHistory}
+        canPickTypes={canPickTypes}
+        defaults={{
+          maintenanceTypeId: order.maintenanceTypeId,
+          maintenanceType: order.maintenanceType,
+          performedBy: order.assignedTo ?? "",
+          performer: order.assignee,
+          workOrderId: order.id,
+          performedAt,
+          conditionBefore: inheritedCondition(records.maintenanceHistories),
+          lockWorkOrder: true,
+        }}
+        onCancel={() => {
+          setCreating(false);
+        }}
+        onSaved={async () => {
+          await reload();
+        }}
+        onMissing={onMissing}
+        onAssetMissing={() => {
+          void onMissing();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-6">
+      <FormBanner message={error?.message ?? null} />
+      {canEditHistory ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className={secondaryButtonClassName}
+            onClick={() => {
+              setPerformedAt(new Date().toISOString());
+              setCreating(true);
+            }}
+          >
+            Add maintenance history
+          </button>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500">No maintenance history is linked to this work order.</p>
+      )}
+      {canEditHistory && available.length > 0 ? (
+        <div>
+          <label className="block text-sm font-medium text-gray-700" htmlFor="link-history">
+            Existing maintenance history
+          </label>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3">
+            <select
+              id="link-history"
+              value={linkId}
+              disabled={pending}
+              onChange={(event) => {
+                setLinkId(event.target.value);
+              }}
+              className={`${inputClassName} mt-0 min-w-64 flex-1`}
+            >
+              <option value="">Choose a record</option>
+              {available.map((record) => (
+                <option key={record.id} value={record.id}>
+                  {`${record.referenceNumber} · ${record.workDescription.slice(0, 80)}`}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className={primaryButtonClassName}
+              disabled={pending || !linkId}
+              onClick={() => {
+                void linkHistory();
+              }}
+            >
+              {pending ? "Linking…" : "Link"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {canEditHistory && available.length === 0 ? (
+        <p className="text-sm text-gray-500">No maintenance history is available to link.</p>
+      ) : null}
+    </div>
+  );
+}
+
+function replaceHistory(
+  list: MaintenanceHistoryList,
+  next: MaintenanceHistory,
+): MaintenanceHistoryList {
+  return {
+    maintenanceHistoryCount: list.maintenanceHistoryCount,
+    maintenanceHistories: list.maintenanceHistories.map((record) =>
+      record.id === next.id ? next : record,
+    ),
+  };
+}
+
+function inheritedCondition(records: MaintenanceHistory[]): string {
+  for (const record of records) {
+    if (record.conditionAfter) {
+      return record.conditionAfter;
+    }
+
+    if (record.conditionBefore) {
+      return record.conditionBefore;
+    }
+  }
+
+  return "";
 }
 
 function WorkOrderForm({
