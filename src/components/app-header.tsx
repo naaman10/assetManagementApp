@@ -19,6 +19,7 @@ import {
   hasAnyPermission,
   hasPermission,
   MAINTENANCE_TYPES_VIEW,
+  PROJECT_TYPES_VIEW,
   ROLE_AREA_PERMISSIONS,
   ROLES_CREATE,
   ROLES_VIEW,
@@ -39,6 +40,7 @@ export function AppHeader() {
   const showBcisRefs = hasAnyPermission(user, BCIS_REF_AREA_PERMISSIONS);
   const showBcisSubRefs = hasAnyPermission(user, BCIS_SUB_REF_AREA_PERMISSIONS);
   const showMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
+  const showProjectTypes = hasPermission(user, PROJECT_TYPES_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
@@ -132,6 +134,7 @@ export function AppHeader() {
           </NavLink>
           {showAssetTypes ||
           showMaintenanceTypes ||
+          showProjectTypes ||
           showBcisRefs ||
           showBcisSubRefs ||
           showUsers ||
@@ -141,6 +144,7 @@ export function AppHeader() {
               user={user}
               showAssetTypes={showAssetTypes}
               showMaintenanceTypes={showMaintenanceTypes}
+              showProjectTypes={showProjectTypes}
               showBcisRefs={showBcisRefs}
               showBcisSubRefs={showBcisSubRefs}
               showUsers={showUsers}
@@ -167,6 +171,7 @@ function SettingsMenu({
   user,
   showAssetTypes,
   showMaintenanceTypes,
+  showProjectTypes,
   showBcisRefs,
   showBcisSubRefs,
   showUsers,
@@ -176,6 +181,7 @@ function SettingsMenu({
   user: SessionUser;
   showAssetTypes: boolean;
   showMaintenanceTypes: boolean;
+  showProjectTypes: boolean;
   showBcisRefs: boolean;
   showBcisSubRefs: boolean;
   showUsers: boolean;
@@ -185,6 +191,7 @@ function SettingsMenu({
   const active =
     pathname.startsWith("/asset-types") ||
     pathname.startsWith("/maintenance-types") ||
+    pathname.startsWith("/project-types") ||
     pathname.startsWith("/bcis-refs") ||
     pathname.startsWith("/bcis-sub-refs") ||
     pathname.startsWith("/settings");
@@ -225,6 +232,15 @@ function SettingsMenu({
               icon={<MaintenanceTypesIcon />}
             >
               Maintenance types
+            </NavLink>
+          ) : null}
+          {showProjectTypes ? (
+            <NavLink
+              href="/project-types"
+              active={pathname.startsWith("/project-types")}
+              icon={<ProjectTypesIcon />}
+            >
+              Project types
             </NavLink>
           ) : null}
           {showBcisRefs || showBcisSubRefs ? (
@@ -557,6 +573,25 @@ function MaintenanceTypesIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ProjectTypesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M3.5 6.5h5l1.2 1.5H16.5v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.5 6.5V5a1 1 0 0 1 1-1h3.2l1.2 1.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
       />
     </svg>
   );

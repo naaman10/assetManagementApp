@@ -43,6 +43,10 @@ export const MAINTENANCE_TYPES_VIEW = "maintenanceTypes:view";
 export const MAINTENANCE_TYPES_CREATE = "maintenanceTypes:create";
 export const MAINTENANCE_TYPES_EDIT = "maintenanceTypes:edit";
 export const MAINTENANCE_TYPES_DELETE = "maintenanceTypes:delete";
+export const PROJECT_TYPES_VIEW = "projectTypes:view";
+export const PROJECT_TYPES_CREATE = "projectTypes:create";
+export const PROJECT_TYPES_EDIT = "projectTypes:edit";
+export const PROJECT_TYPES_DELETE = "projectTypes:delete";
 export const ADMIN_ROLE = "admin";
 
 export const USER_AREA_PERMISSIONS = [
