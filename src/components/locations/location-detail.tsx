@@ -153,7 +153,7 @@ export function LocationDetail({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid gap-8">
+    <div className="grid min-w-0 grid-cols-1 gap-8">
       <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
         {location.client ? (
           <Breadcrumbs

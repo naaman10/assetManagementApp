@@ -207,9 +207,9 @@ export function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${cardClassName} mt-6 overflow-hidden`}>
+    <div className={`${cardClassName} mt-6 min-w-0 overflow-hidden`}>
       <div className="max-w-full overflow-x-auto">
-        <table className="min-w-full">
+        <table className="w-max min-w-full">
           <thead>
             <tr className="border-b border-gray-100">
               {columns.map((column) => (

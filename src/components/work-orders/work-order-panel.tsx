@@ -162,7 +162,7 @@ export function WorkOrderPanel({
                 </>
               )}
               <td className="px-5 py-4 text-sm text-gray-500">
-                {workOrderTypeLabel(order.maintenanceType)}
+                {order.maintenanceType.name}
               </td>
               <td className="px-5 py-4 text-sm text-gray-500">
                 {workOrderPriorityLabel(order.priority)}
