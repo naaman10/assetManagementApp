@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AssetFinder } from "@/components/audits/asset-finder";
+import { AssetFinder } from "@/components/projects/asset-finder";
 import {
   FormBanner,
   FieldMessages,
@@ -22,29 +22,32 @@ import {
   useApi,
   type FieldErrors,
 } from "@/lib/api-client";
+import { parseProjectTypeList } from "@/lib/project-types";
 import {
-  AUDIT_STATUSES,
-  auditStatusLabel,
+  PROJECT_STATUSES,
   leadLabel,
-  parseAuditBody,
   parseClientChoices,
   parseClientSites,
   parseLeadUsers,
-  type AuditStatus,
+  parseProjectBody,
+  projectStatusLabel,
   type FinderAsset,
-} from "@/lib/audits";
-import { CLIENTS_VIEW, hasPermission } from "@/lib/session";
+  type ProjectStatus,
+} from "@/lib/projects";
+import { CLIENTS_VIEW, PROJECT_TYPES_VIEW, hasPermission } from "@/lib/session";
 
-export function CreateAudit({ clientId }: { clientId?: string }) {
+export function CreateProject({ clientId }: { clientId?: string }) {
   const router = useRouter();
   const { user } = useSession();
   const canView = hasPermission(user, CLIENTS_VIEW);
+  const canPickTypes = hasPermission(user, PROJECT_TYPES_VIEW);
   const fixedClientId = clientId || "";
   const blocked = !canView && !fixedClientId;
   const clientsRequest = useApi(
     !blocked && !fixedClientId ? "/api/clients" : null,
     parseClientChoices,
   );
+  const typesRequest = useApi(canPickTypes ? "/api/project-types" : null, parseProjectTypeList);
   const [selectedClientId, setSelectedClientId] = useState(fixedClientId);
   const activeClientId = fixedClientId || selectedClientId;
   const clientRequest = useApi(
@@ -54,7 +57,8 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
   const leadsRequest = useApi(blocked ? null : "/api/clients/users", parseLeadUsers);
   const [title, setTitle] = useState("");
   const [projectReference, setProjectReference] = useState("");
-  const [status, setStatus] = useState<AuditStatus>("scheduled");
+  const [projectTypeId, setProjectTypeId] = useState("");
+  const [status, setStatus] = useState<ProjectStatus>("scheduled");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -65,10 +69,11 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
   const fieldErrors = error?.fieldErrors ?? {};
   const hideLead = leadsRequest.error?.status === 403;
   const clientMissing = clientRequest.error?.status === 404;
+  const activeTypes = (typesRequest.data ?? []).filter((type) => type.isActive);
 
   useEffect(() => {
     if (blocked || clientMissing) {
-      router.replace("/audits");
+      router.replace("/projects");
     }
   }, [blocked, clientMissing, router]);
 
@@ -78,10 +83,12 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const localErrors = validateAudit({
+    const localErrors = validateProject({
       clientId: activeClientId,
       title,
       projectReference,
+      projectTypeId,
+      canPickTypes,
       startDate,
       dueDate,
     });
@@ -91,9 +98,10 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
       return;
     }
 
-    const payload = auditPayload({
+    const payload = projectPayload({
       title,
       projectReference,
+      projectTypeId,
       status,
       description,
       startDate,
@@ -106,13 +114,13 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
     setError(null);
 
     try {
-      const audit = parseAuditBody(
-        await apiRequest(`/api/clients/${activeClientId}/audits`, {
+      const project = parseProjectBody(
+        await apiRequest(`/api/clients/${activeClientId}/projects`, {
           method: "POST",
           body: JSON.stringify(payload),
         }),
       );
-      router.push(`/audits/${audit.id}`);
+      router.push(`/projects/${project.id}`);
     } catch (caught) {
       setError(asApiError(caught));
       setPending(false);
@@ -121,7 +129,7 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
 
   return (
     <section>
-      <PageHeading title="New audit" />
+      <PageHeading title="New project" />
       <form className="mt-6 grid max-w-4xl gap-5" onSubmit={onSubmit}>
         <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
         {fixedClientId ? (
@@ -133,11 +141,11 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="audit-client">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="project-client">
               Client
             </label>
             <select
-              id="audit-client"
+              id="project-client"
               required
               value={selectedClientId}
               disabled={pending || clientsRequest.loading}
@@ -164,7 +172,7 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
         )}
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField
-            id="audit-title"
+            id="project-title"
             label="Title"
             required
             value={title}
@@ -175,47 +183,89 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
             }}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700" htmlFor="audit-status">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="project-status">
               Status
             </label>
             <select
-              id="audit-status"
+              id="project-status"
               value={status}
               disabled={pending}
               onChange={(event) => {
                 const next = event.target.value;
-                if ((AUDIT_STATUSES as readonly string[]).includes(next)) {
-                  setStatus(next as AuditStatus);
+                if ((PROJECT_STATUSES as readonly string[]).includes(next)) {
+                  setStatus(next as ProjectStatus);
                 }
               }}
               className={inputClassName}
             >
-              {AUDIT_STATUSES.map((value) => (
+              {PROJECT_STATUSES.map((value) => (
                 <option key={value} value={value}>
-                  {auditStatusLabel(value)}
+                  {projectStatusLabel(value)}
                 </option>
               ))}
             </select>
             <FieldMessages messages={fieldErrors.status} />
           </div>
         </div>
-        <TextField
-          id="audit-reference"
-          label="Project reference"
-          required
-          value={projectReference}
-          disabled={pending}
-          messages={fieldErrors.projectReference}
-          onChange={(event) => {
-            setProjectReference(event.target.value);
-          }}
-        />
+        <div className="grid gap-5 sm:grid-cols-2">
+          <TextField
+            id="project-reference"
+            label="Project reference"
+            required
+            value={projectReference}
+            disabled={pending}
+            messages={fieldErrors.projectReference}
+            onChange={(event) => {
+              setProjectReference(event.target.value);
+            }}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="project-type">
+              Project type
+            </label>
+            <select
+              id="project-type"
+              required
+              value={projectTypeId}
+              disabled={pending || !canPickTypes || typesRequest.loading}
+              onChange={(event) => {
+                setProjectTypeId(event.target.value);
+              }}
+              className={inputClassName}
+            >
+              <option value="">
+                {typesRequest.loading ? "Loading project types…" : "Choose a project type"}
+              </option>
+              {activeTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name} ({type.code})
+                </option>
+              ))}
+            </select>
+            <FieldMessages messages={fieldErrors.projectTypeId} />
+            {!canPickTypes ? (
+              <p className="mt-1.5 text-sm text-error-500" role="alert">
+                Choosing a project type needs access to project types.
+              </p>
+            ) : null}
+            {canPickTypes && typesRequest.error ? (
+              <p className="mt-1.5 text-sm text-error-500" role="alert">
+                {typesRequest.error.message}
+              </p>
+            ) : null}
+            {canPickTypes && !typesRequest.loading && !typesRequest.error && activeTypes.length === 0 ? (
+              <p className="mt-1.5 text-sm text-error-500" role="alert">
+                No active project types are available.
+              </p>
+            ) : null}
+          </div>
+        </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="audit-description">
+          <label className="block text-sm font-medium text-gray-700" htmlFor="project-description">
             Description
           </label>
           <textarea
-            id="audit-description"
+            id="project-description"
             value={description}
             disabled={pending}
             rows={4}
@@ -228,7 +278,7 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
         </div>
         <div className={`grid gap-5 ${hideLead ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
           <TextField
-            id="audit-start"
+            id="project-start"
             label="Start date"
             type="date"
             value={startDate}
@@ -239,7 +289,7 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
             }}
           />
           <TextField
-            id="audit-due"
+            id="project-due"
             label="Due date"
             type="date"
             value={dueDate}
@@ -251,11 +301,11 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
           />
           {hideLead ? null : (
             <div>
-              <label className="block text-sm font-medium text-gray-700" htmlFor="audit-lead">
+              <label className="block text-sm font-medium text-gray-700" htmlFor="project-lead">
                 Lead
               </label>
               <select
-                id="audit-lead"
+                id="project-lead"
                 value={leadUserId}
                 disabled={pending || leadsRequest.loading}
                 onChange={(event) => {
@@ -295,10 +345,14 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
           <p className="text-sm text-gray-500">Loading client…</p>
         ) : null}
         <div className="flex flex-wrap gap-3">
-          <button type="submit" disabled={pending} className={primaryButtonClassName}>
-            {pending ? "Saving…" : "Create audit"}
+          <button
+            type="submit"
+            disabled={pending || !canPickTypes || activeTypes.length === 0}
+            className={primaryButtonClassName}
+          >
+            {pending ? "Saving…" : "Create project"}
           </button>
-          <Link href="/audits" className={secondaryButtonClassName}>
+          <Link href="/projects" className={secondaryButtonClassName}>
             Cancel
           </Link>
         </div>
@@ -307,10 +361,12 @@ export function CreateAudit({ clientId }: { clientId?: string }) {
   );
 }
 
-function validateAudit(draft: {
+function validateProject(draft: {
   clientId: string;
   title: string;
   projectReference: string;
+  projectTypeId: string;
+  canPickTypes: boolean;
   startDate: string;
   dueDate: string;
 }): FieldErrors | null {
@@ -328,6 +384,10 @@ function validateAudit(draft: {
     errors.projectReference = ["Enter a project reference."];
   }
 
+  if (!draft.canPickTypes || !draft.projectTypeId) {
+    errors.projectTypeId = ["Choose a project type."];
+  }
+
   if (draft.startDate && draft.dueDate && draft.dueDate < draft.startDate) {
     errors.dueDate = ["The due date must be on or after the start date."];
   }
@@ -335,10 +395,11 @@ function validateAudit(draft: {
   return Object.keys(errors).length > 0 ? errors : null;
 }
 
-function auditPayload(draft: {
+function projectPayload(draft: {
   title: string;
   projectReference: string;
-  status: AuditStatus;
+  projectTypeId: string;
+  status: ProjectStatus;
   description: string;
   startDate: string;
   dueDate: string;
@@ -348,6 +409,7 @@ function auditPayload(draft: {
   const payload: Record<string, string | string[]> = {
     title: draft.title.trim(),
     projectReference: draft.projectReference.trim(),
+    projectTypeId: draft.projectTypeId,
     status: draft.status,
     assetIds: draft.assetIds,
   };

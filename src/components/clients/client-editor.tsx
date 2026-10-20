@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClientAudits } from "@/components/audits/client-audits";
+import { ClientProjects } from "@/components/projects/client-projects";
 import { ClientContacts } from "@/components/clients/client-contacts";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { ClientSettings } from "@/components/clients/client-settings";
@@ -27,7 +27,7 @@ import {
 
 const tabs = [
   { id: "sites", label: "Sites", empty: "No sites yet." },
-  { id: "audits", label: "Audits", empty: "No audits yet." },
+  { id: "projects", label: "Projects", empty: "No projects yet." },
   { id: "reports", label: "Reports", empty: "No reports yet." },
   { id: "contacts", label: "Contacts", empty: "" },
   { id: "settings", label: "Settings", empty: "" },
@@ -303,8 +303,8 @@ export function ClientEditor({ id }: { id: string }) {
                   setTab("contacts");
                 }}
               />
-            ) : item.id === "audits" ? (
-              <ClientAudits clientId={client.id} />
+            ) : item.id === "projects" ? (
+              <ClientProjects clientId={client.id} />
             ) : (
               <p className="text-sm text-muted">{item.empty}</p>
             )}

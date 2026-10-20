@@ -14,7 +14,7 @@ import {
   secondaryButtonClassName,
 } from "@/components/form-controls";
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
-import { parseLeadUsers } from "@/lib/audits";
+import { parseLeadUsers } from "@/lib/projects";
 import {
   HISTORY_PHOTO_LIMIT_MESSAGE,
   MAX_HISTORY_PHOTOS,

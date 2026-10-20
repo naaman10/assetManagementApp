@@ -1,40 +1,48 @@
-export const AUDIT_STATUSES = ["scheduled", "in_progress", "completed"] as const;
+export const PROJECT_STATUSES = ["scheduled", "in_progress", "completed"] as const;
 
-export type AuditStatus = (typeof AUDIT_STATUSES)[number];
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
-export type AuditUser = {
+export type ProjectUser = {
   id: string;
   email: string;
   name: string | null;
 };
 
-export type AuditClient = {
+export type ProjectClient = {
   id: string;
   name: string;
 };
 
-export type AuditAsset = {
+export type ProjectAsset = {
   id: string;
   assetRef: string;
   assetName: string | null;
 };
 
-export type Audit = {
+export type ProjectTypeRef = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type Project = {
   id: string;
   title: string;
   projectReference: string;
-  status: AuditStatus;
+  projectTypeId: string;
+  projectType: ProjectTypeRef;
+  status: ProjectStatus;
   description: string | null;
   startDate: string | null;
   dueDate: string | null;
-  lead: AuditUser | null;
-  client: AuditClient;
-  assets: AuditAsset[];
+  lead: ProjectUser | null;
+  client: ProjectClient;
+  assets: ProjectAsset[];
 };
 
-export type AuditList = {
-  auditCount: number;
-  audits: Audit[];
+export type ProjectList = {
+  projectCount: number;
+  projects: Project[];
 };
 
 export type NamedOption = {
@@ -61,17 +69,17 @@ export type FinderAsset = {
   location: FinderLocation;
 };
 
-const statusLabels: Record<AuditStatus, string> = {
+const statusLabels: Record<ProjectStatus, string> = {
   scheduled: "Scheduled",
   in_progress: "In progress",
   completed: "Completed",
 };
 
-export function auditStatusLabel(status: AuditStatus): string {
+export function projectStatusLabel(status: ProjectStatus): string {
   return statusLabels[status];
 }
 
-export function leadLabel(lead: Pick<AuditUser, "name" | "email"> | null): string {
+export function leadLabel(lead: Pick<ProjectUser, "name" | "email"> | null): string {
   if (!lead) {
     return "—";
   }
@@ -79,7 +87,7 @@ export function leadLabel(lead: Pick<AuditUser, "name" | "email"> | null): strin
   return lead.name ?? lead.email;
 }
 
-export function formatAuditDate(value: string | null): string {
+export function formatProjectDate(value: string | null): string {
   if (!value) {
     return "—";
   }
@@ -100,22 +108,22 @@ export function formatAuditDate(value: string | null): string {
   }).format(date);
 }
 
-export function parseAuditList(data: unknown): AuditList {
-  const record = objectRecord(data, "audit list");
-  const audits = parseAudits(record.audits);
+export function parseProjectList(data: unknown): ProjectList {
+  const record = objectRecord(data, "project list");
+  const projects = parseProjects(record.projects);
 
   return {
-    auditCount: typeof record.auditCount === "number" ? record.auditCount : audits.length,
-    audits,
+    projectCount: typeof record.projectCount === "number" ? record.projectCount : projects.length,
+    projects,
   };
 }
 
-export function parseAuditBody(data: unknown): Audit {
-  if (!data || typeof data !== "object" || !("audit" in data)) {
-    throw new Error("The response was missing an audit.");
+export function parseProjectBody(data: unknown): Project {
+  if (!data || typeof data !== "object" || !("project" in data)) {
+    throw new Error("The response was missing a project.");
   }
 
-  return parseAudit(data.audit);
+  return parseProject(data.project);
 }
 
 export function parseClientChoices(data: unknown): NamedOption[] {
@@ -144,8 +152,8 @@ export function parseClientSites(data: unknown): ClientSites {
   };
 }
 
-export function parseLeadUsers(data: unknown): AuditUser[] {
-  return readArray(data, "users").map(parseAuditUser);
+export function parseLeadUsers(data: unknown): ProjectUser[] {
+  return readArray(data, "users").map(parseProjectUser);
 }
 
 export function parseFinderLocations(data: unknown): FinderLocation[] {
@@ -208,7 +216,7 @@ export function locationOptionLabel(location: FinderLocation): string {
   return location.name ?? location.locationCode ?? "Location";
 }
 
-function parseAudits(value: unknown): Audit[] {
+function parseProjects(value: unknown): Project[] {
   if (value == null) {
     return [];
   }
@@ -217,31 +225,38 @@ function parseAudits(value: unknown): Audit[] {
     throw new Error("The response could not be read.");
   }
 
-  return value.map(parseAudit);
+  return value.map(parseProject);
 }
 
-function parseAudit(value: unknown): Audit {
-  const record = objectRecord(value, "audit");
+function parseProject(value: unknown): Project {
+  const record = objectRecord(value, "project");
   const client = objectRecord(record.client, "client");
+  const projectType = objectRecord(record.projectType, "project type");
 
   return {
     id: requiredString(record, "id"),
     title: requiredString(record, "title"),
     projectReference: requiredString(record, "projectReference"),
+    projectTypeId: requiredString(record, "projectTypeId"),
+    projectType: {
+      id: requiredString(projectType, "id"),
+      code: requiredString(projectType, "code"),
+      name: requiredString(projectType, "name"),
+    },
     status: parseStatus(record.status),
     description: optionalString(record, "description"),
     startDate: optionalString(record, "startDate"),
     dueDate: optionalString(record, "dueDate"),
-    lead: record.lead == null ? null : parseAuditUser(record.lead),
+    lead: record.lead == null ? null : parseProjectUser(record.lead),
     client: {
       id: requiredString(client, "id"),
       name: requiredString(client, "name"),
     },
-    assets: parseAuditAssets(record.assets),
+    assets: parseProjectAssets(record.assets),
   };
 }
 
-function parseAuditAssets(value: unknown): AuditAsset[] {
+function parseProjectAssets(value: unknown): ProjectAsset[] {
   if (value == null) {
     return [];
   }
@@ -261,7 +276,7 @@ function parseAuditAssets(value: unknown): AuditAsset[] {
   });
 }
 
-function parseAuditUser(value: unknown): AuditUser {
+function parseProjectUser(value: unknown): ProjectUser {
   const record = objectRecord(value, "user");
 
   return {
@@ -280,9 +295,9 @@ function parseNamedOption(value: unknown): NamedOption {
   };
 }
 
-function parseStatus(value: unknown): AuditStatus {
-  if (typeof value === "string" && (AUDIT_STATUSES as readonly string[]).includes(value)) {
-    return value as AuditStatus;
+function parseStatus(value: unknown): ProjectStatus {
+  if (typeof value === "string" && (PROJECT_STATUSES as readonly string[]).includes(value)) {
+    return value as ProjectStatus;
   }
 
   throw new Error("The response could not be read.");

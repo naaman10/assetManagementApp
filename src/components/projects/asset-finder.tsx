@@ -9,7 +9,7 @@ import {
   parseFinderLocations,
   type FinderAsset,
   type NamedOption,
-} from "@/lib/audits";
+} from "@/lib/projects";
 
 const modes = [
   { id: "asset", label: "Individual assets" },
@@ -95,7 +95,7 @@ export function AssetFinder({
       </div>
       <div className={`grid gap-3 ${mode === "site" ? "" : "sm:grid-cols-2"}`}>
         <Select
-          id="audit-finder-site"
+          id="project-finder-site"
           label="Site"
           value={siteId}
           onChange={setSiteId}
@@ -109,7 +109,7 @@ export function AssetFinder({
         </Select>
         {mode === "site" ? null : (
           <Select
-            id="audit-finder-location"
+            id="project-finder-location"
             label="Location"
             value={locationId}
             disabled={!siteId || locationsRequest.loading}

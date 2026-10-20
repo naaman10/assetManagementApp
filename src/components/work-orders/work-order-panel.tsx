@@ -23,7 +23,7 @@ import {
   parseFinderAssets,
   parseFinderLocations,
   parseLeadUsers,
-} from "@/lib/audits";
+} from "@/lib/projects";
 import {
   parseMaintenanceHistoryList,
   type MaintenanceHistory,

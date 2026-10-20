@@ -3,16 +3,16 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AuditTable } from "@/components/audits/audit-table";
+import { ProjectTable } from "@/components/projects/project-table";
 import { secondaryButtonClassName } from "@/components/form-controls";
 import { asApiError, useApi } from "@/lib/api-client";
-import { parseAuditList } from "@/lib/audits";
+import { parseProjectList } from "@/lib/projects";
 
-export function ClientAudits({ clientId }: { clientId: string }) {
+export function ClientProjects({ clientId }: { clientId: string }) {
   const router = useRouter();
-  const request = useApi(`/api/clients/${clientId}/audits`, parseAuditList);
+  const request = useApi(`/api/clients/${clientId}/projects`, parseProjectList);
   const missing = request.error?.status === 404;
-  const audits = request.data?.audits;
+  const projects = request.data?.projects;
 
   useEffect(() => {
     if (missing) {
@@ -27,21 +27,21 @@ export function ClientAudits({ clientId }: { clientId: string }) {
   return (
     <section>
       <div className="flex justify-end">
-        <Link href={`/audits/new?client=${clientId}`} className={secondaryButtonClassName}>
-          Create audit
+        <Link href={`/projects/new?client=${clientId}`} className={secondaryButtonClassName}>
+          New project
         </Link>
       </div>
-      {request.loading ? <p className="mt-6 text-sm text-gray-500">Loading audits…</p> : null}
+      {request.loading ? <p className="mt-6 text-sm text-gray-500">Loading projects…</p> : null}
       {request.error ? (
         <p className="mt-6 text-sm text-error-600" role="alert">
           {asApiError(request.error).message}
         </p>
       ) : null}
-      {audits && !request.error ? (
-        audits.length === 0 ? (
-          <p className="mt-6 text-sm text-gray-500">No audits yet.</p>
+      {projects && !request.error ? (
+        projects.length === 0 ? (
+          <p className="mt-6 text-sm text-gray-500">No projects yet.</p>
         ) : (
-          <AuditTable audits={audits} includeClient={false} />
+          <ProjectTable projects={projects} includeClient={false} />
         )
       ) : null}
     </section>

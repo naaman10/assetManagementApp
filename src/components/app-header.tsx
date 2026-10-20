@@ -122,8 +122,12 @@ export function AppHeader() {
               Sites
             </NavLink>
           ) : null}
-          <NavLink href="/audits" active={pathname.startsWith("/audits")} icon={<AuditsIcon />}>
-            Audits
+          <NavLink
+            href="/projects"
+            active={pathname === "/projects" || pathname.startsWith("/projects/")}
+            icon={<ProjectsIcon />}
+          >
+            Projects
           </NavLink>
           <NavLink
             href="/work-orders"
@@ -636,7 +640,7 @@ function SitesIcon() {
   );
 }
 
-function AuditsIcon() {
+function ProjectsIcon() {
   return (
     <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
       <rect x="5" y="3.5" width="10" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
