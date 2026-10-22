@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
+  buildNrm3Tree,
   filterNrm3Tree,
   nrm3Label,
   type Nrm3Classification,
@@ -9,8 +10,14 @@ import {
 } from "@/lib/nrm3-classifications";
 
 type PickerRow =
-  | (Nrm3TreeRow & { clear?: false })
-  | { code: string; name: string; depth: number; clear: true };
+  | (Nrm3TreeRow & { clear?: false; hasChildren: boolean })
+  | {
+      code: string;
+      name: string;
+      depth: number;
+      clear: true;
+      hasChildren: false;
+    };
 
 export function Nrm3ClassificationPicker({
   id,
@@ -50,13 +57,14 @@ export function Nrm3ClassificationPicker({
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [open, setOpen] = useState(startOpen);
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [highlight, setHighlight] = useState(0);
   const [highlightQuery, setHighlightQuery] = useState("");
   const available = excludeCodes
     ? items.filter((item) => !excludeCodes.has(item.code))
     : items;
   const selected = available.find((item) => item.code === value) ?? null;
-  const matches = pickerRows(available, query, clearLabel);
+  const matches = pickerRows(available, query, expanded, clearLabel);
   const showingClear = !selected && !loading && Boolean(clearLabel);
 
   if (query !== highlightQuery) {
@@ -116,6 +124,20 @@ export function Nrm3ClassificationPicker({
     close(false, false);
   }
 
+  function toggleExpanded(code: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+
+      if (next.has(code)) {
+        next.delete(code);
+      } else {
+        next.add(code);
+      }
+
+      return next;
+    });
+  }
+
   function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -130,6 +152,28 @@ export function Nrm3ClassificationPicker({
       setHighlight((current) =>
         matches.length === 0 ? 0 : (current - 1 + matches.length) % matches.length,
       );
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      const match = matches[highlight];
+
+      if (match && !match.clear && match.hasChildren && !expanded.has(match.code)) {
+        event.preventDefault();
+        toggleExpanded(match.code);
+      }
+
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      const match = matches[highlight];
+
+      if (match && !match.clear && match.hasChildren && expanded.has(match.code)) {
+        event.preventDefault();
+        toggleExpanded(match.code);
+      }
+
       return;
     }
 
@@ -171,9 +215,10 @@ export function Nrm3ClassificationPicker({
             return;
           }
 
-          const index = pickerRows(available, "", clearLabel).findIndex(
-            (row) => row.code === value,
-          );
+          const nextExpanded = new Set(ancestorCodes(available, value));
+          const rows = pickerRows(available, "", nextExpanded, clearLabel);
+          const index = rows.findIndex((row) => row.code === value);
+          setExpanded(nextExpanded);
           setHighlight(index >= 0 ? index : 0);
           setHighlightQuery("");
           setQuery("");
@@ -222,7 +267,14 @@ export function Nrm3ClassificationPicker({
               placeholder={searchPlaceholder}
               autoComplete="off"
               onChange={(event) => {
-                setQuery(event.target.value);
+                const next = event.target.value;
+                setQuery(next);
+
+                if (next.trim()) {
+                  setExpanded(searchExpandedCodes(available, next));
+                } else {
+                  setExpanded(new Set(ancestorCodes(available, value)));
+                }
               }}
               onKeyDown={onSearchKeyDown}
               className="h-9 w-full rounded-lg border border-gray-300 bg-transparent pr-3 pl-9 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden"
@@ -244,51 +296,80 @@ export function Nrm3ClassificationPicker({
               matches.map((row, index) => {
                 const isSelected = row.clear ? value === "" : row.code === value;
                 const isActive = index === highlight;
+                const isExpanded = !row.clear && expanded.has(row.code);
 
                 return (
                   <li key={row.clear ? "clear" : row.code}>
-                    <button
-                      ref={(node) => {
-                        optionRefs.current[index] = node;
-                      }}
-                      id={`${listId}-${row.clear ? "clear" : row.code}`}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onMouseEnter={() => {
-                        setHighlight(index);
-                      }}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      onClick={() => {
-                        choose(row.code);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
+                    <div
+                      className={`flex w-full items-stretch rounded-lg ${
                         isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
                       }`}
-                      style={row.clear ? undefined : { paddingLeft: 8 + row.depth * 12 }}
+                      style={row.clear ? undefined : { paddingLeft: 4 + row.depth * 12 }}
                     >
                       {row.clear ? (
-                        <TypeMark empty />
+                        <span className="w-7 shrink-0" aria-hidden="true" />
+                      ) : row.hasChildren ? (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-expanded={isExpanded}
+                          aria-label={
+                            isExpanded ? `Collapse ${row.code}` : `Expand ${row.code}`
+                          }
+                          onMouseEnter={() => {
+                            setHighlight(index);
+                          }}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleExpanded(row.code);
+                          }}
+                          className="grid w-7 shrink-0 place-items-center text-gray-500 hover:text-gray-800"
+                        >
+                          <ExpandChevron open={isExpanded} />
+                        </button>
                       ) : (
-                        <TypeMark label={levelMark(row.level)} />
+                        <span className="w-7 shrink-0" aria-hidden="true" />
                       )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-gray-800">
-                          {row.name}
-                        </span>
-                        {row.clear ? null : (
-                          <span className="block truncate text-xs text-gray-500">
-                            {row.code}
-                            {row.depth > 0 && row.parentCode
-                              ? ` · under ${row.parentCode}`
-                              : ""}
-                          </span>
+                      <button
+                        ref={(node) => {
+                          optionRefs.current[index] = node;
+                        }}
+                        id={`${listId}-${row.clear ? "clear" : row.code}`}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onMouseEnter={() => {
+                          setHighlight(index);
+                        }}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                        }}
+                        onClick={() => {
+                          choose(row.code);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-3 py-2 pr-2 text-left"
+                      >
+                        {row.clear ? (
+                          <TypeMark empty />
+                        ) : (
+                          <TypeMark label={levelMark(row.level)} />
                         )}
-                      </span>
-                      {isSelected ? <CheckIcon /> : null}
-                    </button>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-gray-800">
+                            {row.name}
+                          </span>
+                          {row.clear ? null : (
+                            <span className="block truncate text-xs text-gray-500">
+                              {row.code}
+                            </span>
+                          )}
+                        </span>
+                        {isSelected ? <CheckIcon /> : null}
+                      </button>
+                    </div>
                   </li>
                 );
               })
@@ -303,16 +384,122 @@ export function Nrm3ClassificationPicker({
 function pickerRows(
   items: Nrm3Classification[],
   query: string,
+  expanded: Set<string>,
   clearLabel?: string,
 ): PickerRow[] {
-  const filtered = filterNrm3Tree(items, query);
+  const children = buildNrm3Tree(items);
   const needle = query.trim().toLowerCase();
+  const filtered = needle ? filterNrm3Tree(items, query) : null;
+  const treeRows = filtered
+    ? filtered.filter((row) => isVisibleUnderExpanded(row, expanded, items))
+    : visibleTreeRows(items, children, expanded);
+  const parentsWithVisibleChildren = filtered
+    ? new Set(
+        filtered
+          .map((row) => row.parentCode)
+          .filter((code): code is string => code != null),
+      )
+    : null;
+  const rows: PickerRow[] = treeRows.map((row) => ({
+    ...row,
+    hasChildren: parentsWithVisibleChildren
+      ? parentsWithVisibleChildren.has(row.code)
+      : (children.get(row.code)?.length ?? 0) > 0,
+  }));
 
   if (!clearLabel || (needle && !clearLabel.toLowerCase().includes(needle))) {
-    return filtered;
+    return rows;
   }
 
-  return [{ code: "", name: clearLabel, depth: 0, clear: true }, ...filtered];
+  return [
+    { code: "", name: clearLabel, depth: 0, clear: true, hasChildren: false },
+    ...rows,
+  ];
+}
+
+function visibleTreeRows(
+  items: Nrm3Classification[],
+  children: Map<string | null, Nrm3Classification[]>,
+  expanded: Set<string>,
+): Nrm3TreeRow[] {
+  const codes = new Set(items.map((row) => row.code));
+  const roots = (children.get(null) ?? []).concat(
+    items.filter((row) => row.parentCode != null && !codes.has(row.parentCode)),
+  );
+  const result: Nrm3TreeRow[] = [];
+
+  function walk(node: Nrm3Classification, depth: number) {
+    result.push({ ...node, depth });
+    const kids = children.get(node.code) ?? [];
+
+    if (kids.length > 0 && expanded.has(node.code)) {
+      for (const child of kids) {
+        walk(child, depth + 1);
+      }
+    }
+  }
+
+  for (const root of roots.sort((a, b) => a.code.localeCompare(b.code))) {
+    walk(root, 0);
+  }
+
+  return result;
+}
+
+function isVisibleUnderExpanded(
+  row: Nrm3TreeRow,
+  expanded: Set<string>,
+  items: Nrm3Classification[],
+): boolean {
+  const byCode = new Map(items.map((item) => [item.code, item]));
+  let parentCode = row.parentCode;
+
+  while (parentCode) {
+    if (!expanded.has(parentCode)) {
+      return false;
+    }
+
+    parentCode = byCode.get(parentCode)?.parentCode ?? null;
+  }
+
+  return true;
+}
+
+function ancestorCodes(items: Nrm3Classification[], code: string): string[] {
+  if (!code) {
+    return [];
+  }
+
+  const byCode = new Map(items.map((item) => [item.code, item]));
+  const ancestors: string[] = [];
+  let parentCode = byCode.get(code)?.parentCode ?? null;
+
+  while (parentCode) {
+    ancestors.push(parentCode);
+    parentCode = byCode.get(parentCode)?.parentCode ?? null;
+  }
+
+  return ancestors;
+}
+
+function searchExpandedCodes(items: Nrm3Classification[], query: string): Set<string> {
+  const filtered = filterNrm3Tree(items, query);
+  const expanded = new Set<string>();
+
+  for (const row of filtered) {
+    if (row.parentCode) {
+      expanded.add(row.parentCode);
+    }
+  }
+
+  // Expand every ancestor so the filtered tree is fully open for the match path.
+  for (const row of filtered) {
+    for (const ancestor of ancestorCodes(items, row.code)) {
+      expanded.add(ancestor);
+    }
+  }
+
+  return expanded;
 }
 
 function levelMark(level: number): string {
@@ -351,6 +538,25 @@ function Chevron() {
     <svg viewBox="0 0 16 16" className="size-4 shrink-0 text-gray-500" fill="none" aria-hidden="true">
       <path
         d="M4 6.5 8 10.5 12 6.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ExpandChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 4.5 10 8 6 11.5"
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
