@@ -15,7 +15,11 @@ export function ParentAssetPicker({
   disabled,
   loading,
   startOpen = false,
-  clearLabel = "No parent asset",
+  clearLabel,
+  listLabel = "Assets",
+  placeholder = "Choose a parent asset",
+  searchPlaceholder = "Search assets",
+  loadingLabel = "Loading assets…",
   onDismiss,
   onChange,
 }: {
@@ -26,6 +30,10 @@ export function ParentAssetPicker({
   loading?: boolean;
   startOpen?: boolean;
   clearLabel?: string;
+  listLabel?: string;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  loadingLabel?: string;
   onDismiss?: () => void;
   onChange: (assetId: string) => void;
 }) {
@@ -41,10 +49,10 @@ export function ParentAssetPicker({
       disabled={disabled}
       loading={loading}
       startOpen={startOpen}
-      listLabel="Assets"
-      placeholder="Choose a parent asset"
-      searchPlaceholder="Search assets"
-      loadingLabel="Loading assets…"
+      listLabel={listLabel}
+      placeholder={placeholder}
+      searchPlaceholder={searchPlaceholder}
+      loadingLabel={loadingLabel}
       clearLabel={clearLabel}
       onDismiss={onDismiss}
       onChange={onChange}
