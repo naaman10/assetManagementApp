@@ -80,13 +80,13 @@ export type AssetNrm3Classification = {
 
 export type ParentAssetSummary = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
 };
 
 export type Asset = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
   quantity: number | null;
   unitOfMeasure: string | null;
@@ -102,21 +102,30 @@ export type Asset = {
   model: string | null;
   serialNumber: string | null;
   yearOfManufacture: number | null;
-  tag: string | null;
 };
 
+export function assetLabel(
+  asset: Pick<Asset, "tag" | "assetName"> | null | undefined,
+): string {
+  if (!asset) {
+    return "—";
+  }
+
+  return asset.assetName ?? asset.tag;
+}
+
 export function parentAssetLabel(
-  parent: Pick<ParentAssetSummary, "assetRef" | "assetName"> | null | undefined,
+  parent: Pick<ParentAssetSummary, "tag" | "assetName"> | null | undefined,
 ): string {
   if (!parent) {
     return "—";
   }
 
-  if (parent.assetName && parent.assetName !== parent.assetRef) {
-    return `${parent.assetName} · ${parent.assetRef}`;
+  if (parent.assetName && parent.assetName !== parent.tag) {
+    return `${parent.assetName} · ${parent.tag}`;
   }
 
-  return parent.assetName ?? parent.assetRef;
+  return parent.assetName ?? parent.tag;
 }
 
 export type AssetList = {
@@ -244,7 +253,7 @@ function parseAsset(value: unknown): Asset {
 
   return {
     id: requiredString(record, "id"),
-    assetRef: requiredString(record, "assetRef"),
+    tag: requiredString(record, "tag"),
     assetName: optionalString(record, "assetName"),
     quantity: optionalNumber(record, "quantity"),
     unitOfMeasure: optionalString(record, "unitOfMeasure"),
@@ -260,7 +269,6 @@ function parseAsset(value: unknown): Asset {
     model: optionalString(record, "model"),
     serialNumber: optionalString(record, "serialNumber"),
     yearOfManufacture: optionalNumber(record, "yearOfManufacture"),
-    tag: optionalString(record, "tag"),
   };
 }
 
@@ -292,7 +300,7 @@ function parseParentAsset(value: unknown): ParentAssetSummary | null {
 
   return {
     id: requiredString(record, "id"),
-    assetRef: requiredString(record, "assetRef"),
+    tag: requiredString(record, "tag"),
     assetName: optionalString(record, "assetName"),
   };
 }

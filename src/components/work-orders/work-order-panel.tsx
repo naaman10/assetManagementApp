@@ -765,7 +765,7 @@ function WorkOrderForm({
             error={assetsRequest.error?.message ?? null}
             options={(assetsRequest.data ?? []).map((asset) => ({
               value: asset.id,
-              label: asset.assetName ?? asset.assetRef,
+              label: asset.assetName ?? asset.tag,
             }))}
             onChange={(next) => {
               setAssetId(next);

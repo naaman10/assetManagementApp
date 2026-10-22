@@ -21,7 +21,7 @@ export type LocationSearchResult = SearchResultBase & {
 
 export type AssetSearchResult = SearchResultBase & {
   type: "asset";
-  assetRef: string;
+  tag: string;
   locationId: string;
 };
 
@@ -80,8 +80,8 @@ export function searchResultHref(result: SearchResult): string {
 }
 
 export function searchResultExtra(result: SearchResult): string | null {
-  if (result.type === "asset" && result.name !== result.assetRef) {
-    return result.assetRef;
+  if (result.type === "asset" && result.name !== result.tag) {
+    return result.tag;
   }
 
   if (result.type === "location" && result.name !== result.locationCode) {
@@ -128,7 +128,7 @@ function parseSearchResult(value: unknown): SearchResult {
     return {
       type,
       ...base,
-      assetRef: requiredString(record, "assetRef"),
+      tag: requiredString(record, "tag"),
       locationId: requiredString(record, "locationId"),
     };
   }

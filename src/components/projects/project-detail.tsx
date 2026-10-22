@@ -70,10 +70,10 @@ export function ProjectDetail({ id }: { id: string }) {
         {project.assets.length === 0 ? (
           <p className="text-sm text-gray-500">No assets yet.</p>
         ) : (
-          <DataTable columns={["Reference", "Name"]}>
+          <DataTable columns={["Tag", "Name"]}>
             {project.assets.map((asset) => (
               <tr key={asset.id} className="hover:bg-gray-50">
-                <td className="px-5 py-4 text-sm text-gray-500">{asset.assetRef}</td>
+                <td className="px-5 py-4 text-sm text-gray-500">{asset.tag}</td>
                 <td className="px-5 py-4 text-sm font-medium text-gray-800">
                   {asset.assetName ?? "—"}
                 </td>

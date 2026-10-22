@@ -57,14 +57,13 @@ export function AssetForm({
     targetLocationId ? `/api/locations/${targetLocationId}/assets` : null,
     parseAssetList,
   );
-  const [assetRef, setAssetRef] = useState("");
+  const [tag, setTag] = useState("");
   const [assetName, setAssetName] = useState("");
   const [parentAssetId, setParentAssetId] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
   const [serialNumber, setSerialNumber] = useState("");
   const [yearOfManufacture, setYearOfManufacture] = useState("");
-  const [tag, setTag] = useState("");
   const [assetTypeId, setAssetTypeId] = useState("");
   const [nrm3Code, setNrm3Code] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -79,7 +78,7 @@ export function AssetForm({
     event.preventDefault();
     const localErrors = validateAssetDraft({
       locationId: targetLocationId,
-      assetRef,
+      tag,
       assetTypeId,
       quantity,
       yearOfManufacture,
@@ -91,14 +90,13 @@ export function AssetForm({
     }
 
     const payload = assetPayload({
-      assetRef,
+      tag,
       assetName,
       parentAssetId,
       manufacturer,
       model,
       serialNumber,
       yearOfManufacture,
-      tag,
       assetTypeId,
       nrm3Code,
       quantity,
@@ -154,16 +152,16 @@ export function AssetForm({
         </div>
       )}
       <TextField
-        id="asset-reference"
-        name="assetRef"
-        label="Reference"
+        id="asset-tag"
+        name="tag"
+        label="Tag"
         required
-        maxLength={200}
-        value={assetRef}
+        maxLength={100}
+        value={tag}
         disabled={pending}
-        messages={fieldErrors.assetRef}
+        messages={fieldErrors.tag}
         onChange={(event) => {
-          setAssetRef(event.target.value);
+          setTag(event.target.value);
         }}
       />
       <TextField
@@ -251,18 +249,6 @@ export function AssetForm({
         messages={fieldErrors.yearOfManufacture}
         onChange={(event) => {
           setYearOfManufacture(event.target.value);
-        }}
-      />
-      <TextField
-        id="asset-tag"
-        name="tag"
-        label="Tag"
-        maxLength={150}
-        value={tag}
-        disabled={pending}
-        messages={fieldErrors.tag}
-        onChange={(event) => {
-          setTag(event.target.value);
         }}
       />
       <div>
@@ -393,7 +379,7 @@ export function AssetForm({
 
 function validateAssetDraft(draft: {
   locationId: string;
-  assetRef: string;
+  tag: string;
   assetTypeId: string;
   quantity: string;
   yearOfManufacture: string;
@@ -404,8 +390,8 @@ function validateAssetDraft(draft: {
     errors.locationId = ["Choose a location."];
   }
 
-  if (!draft.assetRef.trim()) {
-    errors.assetRef = ["Enter a reference."];
+  if (!draft.tag.trim()) {
+    errors.tag = ["Enter a tag."];
   }
 
   if (!draft.assetTypeId) {
@@ -426,14 +412,13 @@ function validateAssetDraft(draft: {
 }
 
 function assetPayload(draft: {
-  assetRef: string;
+  tag: string;
   assetName: string;
   parentAssetId: string;
   manufacturer: string;
   model: string;
   serialNumber: string;
   yearOfManufacture: string;
-  tag: string;
   assetTypeId: string;
   nrm3Code: string;
   quantity: string;
@@ -441,7 +426,7 @@ function assetPayload(draft: {
   status: AssetStatus;
 }) {
   const payload: Record<string, string | number | null> = {
-    assetRef: draft.assetRef.trim(),
+    tag: draft.tag.trim(),
     assetTypeId: draft.assetTypeId,
     status: draft.status,
     nrm3Code: draft.nrm3Code.trim() || null,
@@ -449,7 +434,6 @@ function assetPayload(draft: {
     manufacturer: emptyToNull(draft.manufacturer),
     model: emptyToNull(draft.model),
     serialNumber: emptyToNull(draft.serialNumber),
-    tag: emptyToNull(draft.tag),
     yearOfManufacture: parseYear(draft.yearOfManufacture),
   };
   const name = draft.assetName.trim();

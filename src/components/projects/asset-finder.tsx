@@ -204,7 +204,7 @@ export function AssetFinder({
             {chosen.map((asset) => (
               <li key={asset.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <span>
-                  <span className="block text-sm font-medium text-gray-800">{asset.assetRef}</span>
+                  <span className="block text-sm font-medium text-gray-800">{asset.tag}</span>
                   <span className="mt-1 block text-sm text-gray-500">
                     {asset.assetName ?? "—"}
                   </span>
@@ -279,7 +279,7 @@ function assetPath(mode: FinderMode, siteId: string, locationId: string): string
 }
 
 function assetTitle(asset: FinderAsset): string {
-  return asset.assetName ? `${asset.assetRef} - ${asset.assetName}` : asset.assetRef;
+  return asset.assetName ? `${asset.tag} - ${asset.assetName}` : asset.tag;
 }
 
 function assetSubtitle(asset: FinderAsset, siteName: string, clientName: string): string {

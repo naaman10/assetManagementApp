@@ -4,7 +4,7 @@ import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 
 type ParentCandidate = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
 };
 
@@ -34,8 +34,8 @@ export function ParentAssetPicker({
       id={id}
       types={assets.map((asset) => ({
         id: asset.id,
-        name: asset.assetName ?? asset.assetRef,
-        code: asset.assetRef,
+        name: asset.assetName ?? asset.tag,
+        code: asset.tag,
       }))}
       value={value}
       disabled={disabled}

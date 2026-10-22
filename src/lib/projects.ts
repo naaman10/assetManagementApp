@@ -15,8 +15,9 @@ export type ProjectClient = {
 
 export type ProjectAsset = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
+  locationId: string;
 };
 
 export type ProjectTypeRef = {
@@ -64,7 +65,7 @@ export type FinderLocation = {
 
 export type FinderAsset = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
   location: FinderLocation;
 };
@@ -197,7 +198,7 @@ export function parseFinderAssets(data: unknown): FinderAsset[] {
 
     return {
       id: requiredString(asset, "id"),
-      assetRef: requiredString(asset, "assetRef"),
+      tag: requiredString(asset, "tag"),
       assetName: optionalString(asset, "assetName"),
       location: {
         id: requiredString(location, "id"),
@@ -270,8 +271,9 @@ function parseProjectAssets(value: unknown): ProjectAsset[] {
 
     return {
       id: requiredString(record, "id"),
-      assetRef: requiredString(record, "assetRef"),
+      tag: requiredString(record, "tag"),
       assetName: optionalString(record, "assetName"),
+      locationId: requiredString(record, "locationId"),
     };
   });
 }

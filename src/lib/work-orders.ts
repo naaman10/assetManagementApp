@@ -31,8 +31,9 @@ const statusLabels: Record<WorkOrderStatus, string> = {
 
 export type WorkOrderAsset = {
   id: string;
-  assetRef: string;
+  tag: string;
   assetName: string | null;
+  locationId: string;
 };
 
 export type WorkOrderClient = {
@@ -92,8 +93,8 @@ export function workOrderStatusLabel(status: WorkOrderStatus): string {
   return statusLabels[status];
 }
 
-export function workOrderAssetLabel(asset: Pick<WorkOrderAsset, "assetName" | "assetRef">): string {
-  return asset.assetName ?? asset.assetRef;
+export function workOrderAssetLabel(asset: Pick<WorkOrderAsset, "assetName" | "tag">): string {
+  return asset.assetName ?? asset.tag;
 }
 
 export function workOrderTypeLabel(type: Pick<WorkOrderType, "code" | "name">): string {
@@ -158,8 +159,9 @@ function parseWorkOrder(value: unknown): WorkOrder {
     assetId: requiredString(record, "assetId"),
     asset: {
       id: requiredString(asset, "id"),
-      assetRef: requiredString(asset, "assetRef"),
+      tag: requiredString(asset, "tag"),
       assetName: optionalString(asset, "assetName"),
+      locationId: requiredString(asset, "locationId"),
     },
     client: {
       id: requiredString(client, "id"),

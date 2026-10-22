@@ -316,13 +316,13 @@ function AssetDetailContent({ id }: { id: string }) {
               label: asset.location.name ?? asset.location.locationCode ?? "Location",
               href: `/locations/${asset.location.id}`,
             },
-            { label: asset.assetName ?? asset.assetRef },
+            { label: asset.assetName ?? asset.tag },
           ]}
         />
         <p className="mt-6 text-sm text-gray-500">Asset</p>
         <InlineTitle
           value={asset.assetName ?? ""}
-          display={asset.assetName ?? asset.assetRef}
+          display={asset.assetName ?? asset.tag}
           field="assetName"
           maxLength={255}
           editable={canEdit}
@@ -332,29 +332,19 @@ function AssetDetailContent({ id }: { id: string }) {
         />
         <PropertyGrid columns={3}>
           <InlineText
-            label="Reference"
-            field="assetRef"
-            value={asset.assetRef}
+            label="Tag"
+            field="tag"
+            value={asset.tag}
             editable={canEdit}
-            maxLength={200}
-            onSave={async (assetRef) => {
-              if (!assetRef) {
+            maxLength={100}
+            onSave={async (tag) => {
+              if (!tag) {
                 throw new ApiRequestError(400, "Invalid request", {
-                  assetRef: ["Enter a reference."],
+                  tag: ["Enter a tag."],
                 });
               }
 
-              await saveAsset({ assetRef });
-            }}
-          />
-          <InlineText
-            label="Tag"
-            field="tag"
-            value={asset.tag ?? ""}
-            editable={canEdit}
-            maxLength={150}
-            onSave={async (tag) => {
-              await saveAsset({ tag: tag || null });
+              await saveAsset({ tag });
             }}
           />
           <InlineSelect
@@ -574,7 +564,7 @@ function AssetDetailContent({ id }: { id: string }) {
         >
           <WorkOrderPanel
             assetId={asset.id}
-            assetLabel={asset.assetName ?? asset.assetRef}
+            assetLabel={asset.assetName ?? asset.tag}
             orders={orderList}
             loading={ordersRequest.loading && !orderList}
             error={orderError ?? (orderList ? null : (ordersRequest.error?.message ?? null))}

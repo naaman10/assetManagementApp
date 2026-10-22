@@ -44,8 +44,8 @@ export function AssetTable({
   }
 
   const columns = includeLocation
-    ? ["Location", "Reference", "Name", "Type", "Quantity", "Status"]
-    : ["Reference", "Name", "Type", "Quantity", "Status"];
+    ? ["Location", "Tag", "Name", "Type", "Quantity", "Status"]
+    : ["Tag", "Name", "Type", "Quantity", "Status"];
 
   return (
     <DataTable columns={columns}>
@@ -63,10 +63,10 @@ export function AssetTable({
           ) : null}
           <td className="px-5 py-4 text-sm text-gray-500">
             {asset.assetName ? (
-              asset.assetRef
+              asset.tag
             ) : (
               <Link href={`/assets/${asset.id}`} className="font-medium text-gray-800">
-                {asset.assetRef}
+                {asset.tag}
               </Link>
             )}
           </td>
