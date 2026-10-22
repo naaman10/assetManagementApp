@@ -31,14 +31,6 @@ export const CLIENTS_EDIT = "clients:edit";
 export const CLIENTS_DELETE = "clients:delete";
 export const ASSET_TYPES_VIEW = "assetType:view";
 export const ASSET_TYPES_EDIT = "assetType:edit";
-export const BCIS_REFS_VIEW = "bcisRef:view";
-export const BCIS_REFS_CREATE = "bcisRef:create";
-export const BCIS_REFS_EDIT = "bcisRef:edit";
-export const BCIS_REFS_DELETE = "bcisRef:delete";
-export const BCIS_SUB_REFS_VIEW = "bcisSubRef:view";
-export const BCIS_SUB_REFS_CREATE = "bcisSubRef:create";
-export const BCIS_SUB_REFS_EDIT = "bcisSubRef:edit";
-export const BCIS_SUB_REFS_DELETE = "bcisSubRef:delete";
 export const MAINTENANCE_TYPES_VIEW = "maintenanceTypes:view";
 export const MAINTENANCE_TYPES_CREATE = "maintenanceTypes:create";
 export const MAINTENANCE_TYPES_EDIT = "maintenanceTypes:edit";
@@ -61,20 +53,6 @@ export const ROLE_AREA_PERMISSIONS = [
   ROLES_CREATE,
   ROLES_EDIT,
   ROLES_DELETE,
-] as const;
-
-export const BCIS_REF_AREA_PERMISSIONS = [
-  BCIS_REFS_VIEW,
-  BCIS_REFS_CREATE,
-  BCIS_REFS_EDIT,
-  BCIS_REFS_DELETE,
-] as const;
-
-export const BCIS_SUB_REF_AREA_PERMISSIONS = [
-  BCIS_SUB_REFS_VIEW,
-  BCIS_SUB_REFS_CREATE,
-  BCIS_SUB_REFS_EDIT,
-  BCIS_SUB_REFS_DELETE,
 ] as const;
 
 export function hasPermission(

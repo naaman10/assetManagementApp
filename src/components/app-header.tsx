@@ -9,12 +9,6 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { useSession } from "@/components/session-provider";
 import {
   ASSET_TYPES_VIEW,
-  BCIS_REF_AREA_PERMISSIONS,
-  BCIS_REFS_CREATE,
-  BCIS_REFS_VIEW,
-  BCIS_SUB_REF_AREA_PERMISSIONS,
-  BCIS_SUB_REFS_CREATE,
-  BCIS_SUB_REFS_VIEW,
   CLIENTS_VIEW,
   hasAnyPermission,
   hasPermission,
@@ -37,8 +31,6 @@ export function AppHeader() {
   const mobileSearch = useMobileSearch();
   const showClients = hasPermission(user, CLIENTS_VIEW);
   const showAssetTypes = hasPermission(user, ASSET_TYPES_VIEW);
-  const showBcisRefs = hasAnyPermission(user, BCIS_REF_AREA_PERMISSIONS);
-  const showBcisSubRefs = hasAnyPermission(user, BCIS_SUB_REF_AREA_PERMISSIONS);
   const showMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
   const showProjectTypes = hasPermission(user, PROJECT_TYPES_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
@@ -139,8 +131,6 @@ export function AppHeader() {
           {showAssetTypes ||
           showMaintenanceTypes ||
           showProjectTypes ||
-          showBcisRefs ||
-          showBcisSubRefs ||
           showUsers ||
           showRoles ? (
             <SettingsMenu
@@ -149,8 +139,6 @@ export function AppHeader() {
               showAssetTypes={showAssetTypes}
               showMaintenanceTypes={showMaintenanceTypes}
               showProjectTypes={showProjectTypes}
-              showBcisRefs={showBcisRefs}
-              showBcisSubRefs={showBcisSubRefs}
               showUsers={showUsers}
               showRoles={showRoles}
             />
@@ -176,8 +164,6 @@ function SettingsMenu({
   showAssetTypes,
   showMaintenanceTypes,
   showProjectTypes,
-  showBcisRefs,
-  showBcisSubRefs,
   showUsers,
   showRoles,
 }: {
@@ -186,8 +172,6 @@ function SettingsMenu({
   showAssetTypes: boolean;
   showMaintenanceTypes: boolean;
   showProjectTypes: boolean;
-  showBcisRefs: boolean;
-  showBcisSubRefs: boolean;
   showUsers: boolean;
   showRoles: boolean;
 }) {
@@ -196,8 +180,6 @@ function SettingsMenu({
     pathname.startsWith("/asset-types") ||
     pathname.startsWith("/maintenance-types") ||
     pathname.startsWith("/project-types") ||
-    pathname.startsWith("/bcis-refs") ||
-    pathname.startsWith("/bcis-sub-refs") ||
     pathname.startsWith("/settings");
   const [open, setOpen] = useState(active);
 
@@ -246,14 +228,6 @@ function SettingsMenu({
             >
               Project types
             </NavLink>
-          ) : null}
-          {showBcisRefs || showBcisSubRefs ? (
-            <ReferencesMenu
-              pathname={pathname}
-              user={user}
-              showBcisRefs={showBcisRefs}
-              showBcisSubRefs={showBcisSubRefs}
-            />
           ) : null}
           {showUsers || showRoles ? (
             <UserManagementMenu
@@ -330,75 +304,6 @@ function UserManagementMenu({
               active={pathname.startsWith("/settings/roles")}
             >
               Roles
-            </MenuLink>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ReferencesMenu({
-  pathname,
-  user,
-  showBcisRefs,
-  showBcisSubRefs,
-}: {
-  pathname: string;
-  user: SessionUser;
-  showBcisRefs: boolean;
-  showBcisSubRefs: boolean;
-}) {
-  const menuId = useId();
-  const active =
-    pathname.startsWith("/bcis-refs") || pathname.startsWith("/bcis-sub-refs");
-  const [open, setOpen] = useState(active);
-
-  return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={menuId}
-        onClick={() => {
-          setOpen((current) => !current);
-        }}
-        className={`menu-item ${active || open ? "menu-item-active" : "menu-item-inactive"}`}
-      >
-        <span className={active || open ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
-          <ReferencesIcon />
-        </span>
-        <span className="flex-1 text-left">References</span>
-        <Chevron open={open} />
-      </button>
-      {open ? (
-        <div id={menuId} className="mt-1 grid gap-1 pl-9">
-          {showBcisRefs ? (
-            <MenuLink
-              href={areaHref(
-                user,
-                BCIS_REFS_VIEW,
-                BCIS_REFS_CREATE,
-                "/bcis-refs",
-                "/bcis-refs/new",
-              )}
-              active={pathname.startsWith("/bcis-refs")}
-            >
-              BCIS references
-            </MenuLink>
-          ) : null}
-          {showBcisSubRefs ? (
-            <MenuLink
-              href={areaHref(
-                user,
-                BCIS_SUB_REFS_VIEW,
-                BCIS_SUB_REFS_CREATE,
-                "/bcis-sub-refs",
-                "/bcis-sub-refs/new",
-              )}
-              active={pathname.startsWith("/bcis-sub-refs")}
-            >
-              BCIS sub references
             </MenuLink>
           ) : null}
         </div>
@@ -539,25 +444,6 @@ function ClientsIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ReferencesIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
-      <path
-        d="M6.2 3.5h8.2A1.6 1.6 0 0 1 16 5.1v11.4L10 14.2 4 16.5V5.1A1.6 1.6 0 0 1 5.6 3.5h.6Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7.5 7.5h5M7.5 10.5h3.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
       />
     </svg>
   );
