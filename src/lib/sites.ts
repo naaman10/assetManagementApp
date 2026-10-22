@@ -78,6 +78,12 @@ export type AssetNrm3Classification = {
   level: number;
 };
 
+export type ParentAssetSummary = {
+  id: string;
+  assetRef: string;
+  assetName: string | null;
+};
+
 export type Asset = {
   id: string;
   assetRef: string;
@@ -90,7 +96,28 @@ export type Asset = {
   assetType: AssetTypeSummary;
   nrm3Code: string | null;
   nrm3Classification: AssetNrm3Classification | null;
+  parentAssetId: string | null;
+  parentAsset: ParentAssetSummary | null;
+  manufacturer: string | null;
+  model: string | null;
+  serialNumber: string | null;
+  yearOfManufacture: number | null;
+  tag: string | null;
 };
+
+export function parentAssetLabel(
+  parent: Pick<ParentAssetSummary, "assetRef" | "assetName"> | null | undefined,
+): string {
+  if (!parent) {
+    return "—";
+  }
+
+  if (parent.assetName && parent.assetName !== parent.assetRef) {
+    return `${parent.assetName} · ${parent.assetRef}`;
+  }
+
+  return parent.assetName ?? parent.assetRef;
+}
 
 export type AssetList = {
   assetCount: number;
@@ -227,6 +254,13 @@ function parseAsset(value: unknown): Asset {
     assetType: parseAssetTypeSummary(record.assetType),
     nrm3Code: optionalString(record, "nrm3Code"),
     nrm3Classification: parseAssetNrm3(record.nrm3Classification),
+    parentAssetId: optionalString(record, "parentAssetId"),
+    parentAsset: parseParentAsset(record.parentAsset),
+    manufacturer: optionalString(record, "manufacturer"),
+    model: optionalString(record, "model"),
+    serialNumber: optionalString(record, "serialNumber"),
+    yearOfManufacture: optionalNumber(record, "yearOfManufacture"),
+    tag: optionalString(record, "tag"),
   };
 }
 
@@ -246,6 +280,20 @@ function parseAssetNrm3(value: unknown): AssetNrm3Classification | null {
     code: requiredString(record, "code"),
     name: requiredString(record, "name"),
     level,
+  };
+}
+
+function parseParentAsset(value: unknown): ParentAssetSummary | null {
+  if (value == null) {
+    return null;
+  }
+
+  const record = objectRecord(value, "parent asset");
+
+  return {
+    id: requiredString(record, "id"),
+    assetRef: requiredString(record, "assetRef"),
+    assetName: optionalString(record, "assetName"),
   };
 }
 

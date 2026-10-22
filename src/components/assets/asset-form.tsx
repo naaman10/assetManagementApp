@@ -12,6 +12,7 @@ import {
 } from "@/components/form-controls";
 import { assetStatusLabel } from "@/components/assets/asset-table";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
+import { ParentAssetPicker } from "@/components/assets/parent-asset-picker";
 import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
@@ -25,6 +26,7 @@ import {
 import {
   ASSET_STATUSES,
   parseAssetBody,
+  parseAssetList,
   type Asset,
   type AssetStatus,
   type SiteLocation,
@@ -50,8 +52,19 @@ export function AssetForm({
     parseNrm3ClassificationList,
   );
   const [selectedLocationId, setSelectedLocationId] = useState(locationId ?? "");
+  const targetLocationId = locationId ?? selectedLocationId;
+  const parentsRequest = useApi(
+    targetLocationId ? `/api/locations/${targetLocationId}/assets` : null,
+    parseAssetList,
+  );
   const [assetRef, setAssetRef] = useState("");
   const [assetName, setAssetName] = useState("");
+  const [parentAssetId, setParentAssetId] = useState("");
+  const [manufacturer, setManufacturer] = useState("");
+  const [model, setModel] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [yearOfManufacture, setYearOfManufacture] = useState("");
+  const [tag, setTag] = useState("");
   const [assetTypeId, setAssetTypeId] = useState("");
   const [nrm3Code, setNrm3Code] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -64,12 +77,12 @@ export function AssetForm({
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const targetLocationId = locationId ?? selectedLocationId;
     const localErrors = validateAssetDraft({
       locationId: targetLocationId,
       assetRef,
       assetTypeId,
       quantity,
+      yearOfManufacture,
     });
 
     if (localErrors) {
@@ -80,6 +93,12 @@ export function AssetForm({
     const payload = assetPayload({
       assetRef,
       assetName,
+      parentAssetId,
+      manufacturer,
+      model,
+      serialNumber,
+      yearOfManufacture,
+      tag,
       assetTypeId,
       nrm3Code,
       quantity,
@@ -120,6 +139,7 @@ export function AssetForm({
             disabled={pending}
             onChange={(event) => {
               setSelectedLocationId(event.target.value);
+              setParentAssetId("");
             }}
             className={inputClassName}
           >
@@ -156,6 +176,93 @@ export function AssetForm({
         messages={fieldErrors.assetName}
         onChange={(event) => {
           setAssetName(event.target.value);
+        }}
+      />
+      <div>
+        <label
+          id="asset-parent-label"
+          className="block text-sm font-medium text-gray-700"
+          htmlFor="asset-parent"
+        >
+          Parent asset
+        </label>
+        <ParentAssetPicker
+          id="asset-parent"
+          assets={parentsRequest.data?.assets ?? []}
+          value={parentAssetId}
+          disabled={pending || !targetLocationId}
+          loading={Boolean(targetLocationId) && parentsRequest.loading}
+          clearLabel="No parent asset"
+          onChange={setParentAssetId}
+        />
+        <FieldMessages messages={fieldErrors.parentAssetId} />
+        {parentsRequest.error ? (
+          <p className="mt-1.5 text-sm text-error-500" role="alert">
+            {parentsRequest.error.message}
+          </p>
+        ) : null}
+      </div>
+      <TextField
+        id="asset-manufacturer"
+        name="manufacturer"
+        label="Manufacturer"
+        value={manufacturer}
+        disabled={pending}
+        messages={fieldErrors.manufacturer}
+        onChange={(event) => {
+          setManufacturer(event.target.value);
+        }}
+      />
+      <TextField
+        id="asset-model"
+        name="model"
+        label="Model"
+        maxLength={150}
+        value={model}
+        disabled={pending}
+        messages={fieldErrors.model}
+        onChange={(event) => {
+          setModel(event.target.value);
+        }}
+      />
+      <TextField
+        id="asset-serial"
+        name="serialNumber"
+        label="Serial number"
+        maxLength={150}
+        value={serialNumber}
+        disabled={pending}
+        messages={fieldErrors.serialNumber}
+        onChange={(event) => {
+          setSerialNumber(event.target.value);
+        }}
+      />
+      <TextField
+        id="asset-year"
+        name="yearOfManufacture"
+        label="Year of manufacture"
+        type="number"
+        inputMode="numeric"
+        step={1}
+        min={1000}
+        max={9999}
+        value={yearOfManufacture}
+        disabled={pending}
+        messages={fieldErrors.yearOfManufacture}
+        onChange={(event) => {
+          setYearOfManufacture(event.target.value);
+        }}
+      />
+      <TextField
+        id="asset-tag"
+        name="tag"
+        label="Tag"
+        maxLength={150}
+        value={tag}
+        disabled={pending}
+        messages={fieldErrors.tag}
+        onChange={(event) => {
+          setTag(event.target.value);
         }}
       />
       <div>
@@ -289,6 +396,7 @@ function validateAssetDraft(draft: {
   assetRef: string;
   assetTypeId: string;
   quantity: string;
+  yearOfManufacture: string;
 }): FieldErrors | null {
   const errors: FieldErrors = {};
 
@@ -308,12 +416,24 @@ function validateAssetDraft(draft: {
     errors.quantity = ["Enter a quantity."];
   }
 
+  const yearError = validateYear(draft.yearOfManufacture);
+
+  if (yearError) {
+    errors.yearOfManufacture = [yearError];
+  }
+
   return Object.keys(errors).length > 0 ? errors : null;
 }
 
 function assetPayload(draft: {
   assetRef: string;
   assetName: string;
+  parentAssetId: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  yearOfManufacture: string;
+  tag: string;
   assetTypeId: string;
   nrm3Code: string;
   quantity: string;
@@ -325,6 +445,12 @@ function assetPayload(draft: {
     assetTypeId: draft.assetTypeId,
     status: draft.status,
     nrm3Code: draft.nrm3Code.trim() || null,
+    parentAssetId: draft.parentAssetId.trim() || null,
+    manufacturer: emptyToNull(draft.manufacturer),
+    model: emptyToNull(draft.model),
+    serialNumber: emptyToNull(draft.serialNumber),
+    tag: emptyToNull(draft.tag),
+    yearOfManufacture: parseYear(draft.yearOfManufacture),
   };
   const name = draft.assetName.trim();
   const unit = draft.unitOfMeasure.trim();
@@ -342,6 +468,36 @@ function assetPayload(draft: {
   }
 
   return payload;
+}
+
+function validateYear(value: string): string | null {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!/^\d{4}$/.test(trimmed)) {
+    return "Enter a year between 1000 and 9999.";
+  }
+
+  const year = Number(trimmed);
+
+  if (year < 1000 || year > 9999) {
+    return "Enter a year between 1000 and 9999.";
+  }
+
+  return null;
+}
+
+function parseYear(value: string): number | null {
+  const trimmed = value.trim();
+  return trimmed ? Number(trimmed) : null;
+}
+
+function emptyToNull(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function locationOptionLabel(location: SiteLocation): string {

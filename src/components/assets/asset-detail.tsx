@@ -6,6 +6,7 @@ import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
 import { MaintenanceHistoryPanel } from "@/components/assets/maintenance-history";
 import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
+import { ParentAssetPicker } from "@/components/assets/parent-asset-picker";
 import { WorkOrderPanel } from "@/components/work-orders/work-order-panel";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
@@ -49,7 +50,9 @@ import {
 } from "@/lib/session";
 import {
   ASSET_STATUSES,
+  parentAssetLabel,
   parseAssetBody,
+  parseAssetList,
   parseSiteSummary,
   type Asset,
   type AssetStatus,
@@ -97,6 +100,12 @@ function AssetDetailContent({ id }: { id: string }) {
   const nrm3Request = useApi(
     canView && canEdit && canPickNrm3 ? "/api/nrm3-classifications" : null,
     parseNrm3ClassificationList,
+  );
+  const parentsRequest = useApi(
+    canView && canEdit && request.data
+      ? `/api/sites/${request.data.location.siteId}/assets`
+      : null,
+    parseAssetList,
   );
   const schedulesRequest = useApi(
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
@@ -357,6 +366,86 @@ function AssetDetailContent({ id }: { id: string }) {
             itemsError={nrm3Request.error?.message ?? null}
             onSave={async (nextCode) => {
               await saveAsset({ nrm3Code: nextCode || null });
+            }}
+          />
+          <ParentAssetField
+            asset={asset}
+            editable={canEdit}
+            assets={(parentsRequest.data?.assets ?? []).filter(
+              (candidate) => candidate.id !== asset.id,
+            )}
+            loading={parentsRequest.loading}
+            assetsError={parentsRequest.error?.message ?? null}
+            onSave={async (parentAssetId) => {
+              await saveAsset({ parentAssetId: parentAssetId || null });
+            }}
+          />
+          <InlineText
+            label="Manufacturer"
+            field="manufacturer"
+            value={asset.manufacturer ?? ""}
+            editable={canEdit}
+            onSave={async (manufacturer) => {
+              await saveAsset({ manufacturer: manufacturer || null });
+            }}
+          />
+          <InlineText
+            label="Model"
+            field="model"
+            value={asset.model ?? ""}
+            editable={canEdit}
+            maxLength={150}
+            onSave={async (model) => {
+              await saveAsset({ model: model || null });
+            }}
+          />
+          <InlineText
+            label="Serial number"
+            field="serialNumber"
+            value={asset.serialNumber ?? ""}
+            editable={canEdit}
+            maxLength={150}
+            onSave={async (serialNumber) => {
+              await saveAsset({ serialNumber: serialNumber || null });
+            }}
+          />
+          <InlineText
+            label="Year of manufacture"
+            field="yearOfManufacture"
+            type="number"
+            value={asset.yearOfManufacture == null ? "" : String(asset.yearOfManufacture)}
+            editable={canEdit}
+            onSave={async (raw) => {
+              if (!raw) {
+                await saveAsset({ yearOfManufacture: null });
+                return;
+              }
+
+              if (!/^\d{4}$/.test(raw)) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  yearOfManufacture: ["Enter a year between 1000 and 9999."],
+                });
+              }
+
+              const year = Number(raw);
+
+              if (year < 1000 || year > 9999) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  yearOfManufacture: ["Enter a year between 1000 and 9999."],
+                });
+              }
+
+              await saveAsset({ yearOfManufacture: year });
+            }}
+          />
+          <InlineText
+            label="Tag"
+            field="tag"
+            value={asset.tag ?? ""}
+            editable={canEdit}
+            maxLength={150}
+            onSave={async (tag) => {
+              await saveAsset({ tag: tag || null });
             }}
           />
           <InlineSelect
@@ -658,6 +747,71 @@ function Nrm3Field({
         </>
       ) : (
         <span>{nrm3Label(asset.nrm3Classification)}</span>
+      )}
+    </Property>
+  );
+}
+
+function ParentAssetField({
+  asset,
+  editable,
+  assets,
+  loading,
+  assetsError,
+  onSave,
+}: {
+  asset: Asset;
+  editable: boolean;
+  assets: Asset[];
+  loading: boolean;
+  assetsError: string | null;
+  onSave: (parentAssetId: string) => Promise<void>;
+}) {
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const currentId = asset.parentAssetId ?? "";
+
+  return (
+    <Property label="Parent asset">
+      {editable ? (
+        <>
+          <ParentAssetPicker
+            id={`asset-${asset.id}-parent`}
+            assets={assets}
+            value={currentId}
+            disabled={pending}
+            loading={loading}
+            clearLabel="No parent asset"
+            onChange={(parentAssetId) => {
+              if (parentAssetId === currentId || pending) {
+                return;
+              }
+
+              setPending(true);
+              setError(null);
+              void onSave(parentAssetId)
+                .catch((caught) => {
+                  setError(asApiError(caught));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
+            }}
+          />
+          {assetsError ? (
+            <p className="mt-1.5 text-sm text-error-500" role="alert">
+              {assetsError}
+            </p>
+          ) : null}
+          {error ? (
+            <>
+              <FormBanner message={bannerMessage(error.message, error.fieldErrors)} />
+              <FieldMessages messages={error.fieldErrors.parentAssetId} />
+            </>
+          ) : null}
+        </>
+      ) : (
+        <span>{parentAssetLabel(asset.parentAsset)}</span>
       )}
     </Property>
   );
