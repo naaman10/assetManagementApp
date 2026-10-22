@@ -13,6 +13,7 @@ import {
   hasAnyPermission,
   hasPermission,
   MAINTENANCE_TYPES_VIEW,
+  NRM3_CLASSIFICATIONS_VIEW,
   PROJECT_TYPES_VIEW,
   ROLE_AREA_PERMISSIONS,
   ROLES_CREATE,
@@ -33,6 +34,7 @@ export function AppHeader() {
   const showAssetTypes = hasPermission(user, ASSET_TYPES_VIEW);
   const showMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
   const showProjectTypes = hasPermission(user, PROJECT_TYPES_VIEW);
+  const showNrm3Classifications = hasPermission(user, NRM3_CLASSIFICATIONS_VIEW);
   const showUsers = hasAnyPermission(user, USER_AREA_PERMISSIONS);
   const showRoles = hasAnyPermission(user, ROLE_AREA_PERMISSIONS);
 
@@ -128,9 +130,10 @@ export function AppHeader() {
           >
             Work orders
           </NavLink>
-          {showAssetTypes ||
+          {          showAssetTypes ||
           showMaintenanceTypes ||
           showProjectTypes ||
+          showNrm3Classifications ||
           showUsers ||
           showRoles ? (
             <SettingsMenu
@@ -139,6 +142,7 @@ export function AppHeader() {
               showAssetTypes={showAssetTypes}
               showMaintenanceTypes={showMaintenanceTypes}
               showProjectTypes={showProjectTypes}
+              showNrm3Classifications={showNrm3Classifications}
               showUsers={showUsers}
               showRoles={showRoles}
             />
@@ -164,6 +168,7 @@ function SettingsMenu({
   showAssetTypes,
   showMaintenanceTypes,
   showProjectTypes,
+  showNrm3Classifications,
   showUsers,
   showRoles,
 }: {
@@ -172,6 +177,7 @@ function SettingsMenu({
   showAssetTypes: boolean;
   showMaintenanceTypes: boolean;
   showProjectTypes: boolean;
+  showNrm3Classifications: boolean;
   showUsers: boolean;
   showRoles: boolean;
 }) {
@@ -180,6 +186,7 @@ function SettingsMenu({
     pathname.startsWith("/asset-types") ||
     pathname.startsWith("/maintenance-types") ||
     pathname.startsWith("/project-types") ||
+    pathname.startsWith("/nrm3-classifications") ||
     pathname.startsWith("/settings");
   const [open, setOpen] = useState(active);
 
@@ -227,6 +234,15 @@ function SettingsMenu({
               icon={<ProjectTypesIcon />}
             >
               Project types
+            </NavLink>
+          ) : null}
+          {showNrm3Classifications ? (
+            <NavLink
+              href="/nrm3-classifications"
+              active={pathname.startsWith("/nrm3-classifications")}
+              icon={<Nrm3ClassificationsIcon />}
+            >
+              NRM3 classifications
             </NavLink>
           ) : null}
           {showUsers || showRoles ? (
@@ -482,6 +498,19 @@ function ProjectTypesIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Nrm3ClassificationsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <path
+        d="M4 5.5h12M6 10h10M8 14.5h8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
       />
     </svg>
   );

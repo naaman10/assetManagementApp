@@ -72,6 +72,12 @@ export type AssetTypeSummary = {
   name: string;
 };
 
+export type AssetNrm3Classification = {
+  code: string;
+  name: string;
+  level: number;
+};
+
 export type Asset = {
   id: string;
   assetRef: string;
@@ -82,6 +88,8 @@ export type Asset = {
   client: NamedClient;
   location: AssetLocation;
   assetType: AssetTypeSummary;
+  nrm3Code: string | null;
+  nrm3Classification: AssetNrm3Classification | null;
 };
 
 export type AssetList = {
@@ -217,6 +225,27 @@ function parseAsset(value: unknown): Asset {
     client: parseNamedClient(record.client),
     location: parseAssetLocation(record.location),
     assetType: parseAssetTypeSummary(record.assetType),
+    nrm3Code: optionalString(record, "nrm3Code"),
+    nrm3Classification: parseAssetNrm3(record.nrm3Classification),
+  };
+}
+
+function parseAssetNrm3(value: unknown): AssetNrm3Classification | null {
+  if (value == null) {
+    return null;
+  }
+
+  const record = objectRecord(value, "NRM3 classification");
+  const level = record.level;
+
+  if (typeof level !== "number" || !Number.isInteger(level)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return {
+    code: requiredString(record, "code"),
+    name: requiredString(record, "name"),
+    level,
   };
 }
 

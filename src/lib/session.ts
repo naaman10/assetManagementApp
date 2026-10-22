@@ -39,6 +39,10 @@ export const PROJECT_TYPES_VIEW = "projectTypes:view";
 export const PROJECT_TYPES_CREATE = "projectTypes:create";
 export const PROJECT_TYPES_EDIT = "projectTypes:edit";
 export const PROJECT_TYPES_DELETE = "projectTypes:delete";
+export const NRM3_CLASSIFICATIONS_VIEW = "nrm3Classification:view";
+export const NRM3_CLASSIFICATIONS_CREATE = "nrm3Classification:create";
+export const NRM3_CLASSIFICATIONS_EDIT = "nrm3Classification:edit";
+export const NRM3_CLASSIFICATIONS_DELETE = "nrm3Classification:delete";
 export const ADMIN_ROLE = "admin";
 
 export const USER_AREA_PERMISSIONS = [

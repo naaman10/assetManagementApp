@@ -12,10 +12,16 @@ import {
 } from "@/components/form-controls";
 import { assetStatusLabel } from "@/components/assets/asset-table";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
+import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
 import { parseAssetTypeList } from "@/lib/asset-types";
-import { ASSET_TYPES_VIEW, hasPermission } from "@/lib/session";
+import { parseNrm3ClassificationList } from "@/lib/nrm3-classifications";
+import {
+  ASSET_TYPES_VIEW,
+  NRM3_CLASSIFICATIONS_VIEW,
+  hasPermission,
+} from "@/lib/session";
 import {
   ASSET_STATUSES,
   parseAssetBody,
@@ -37,11 +43,17 @@ export function AssetForm({
 }) {
   const { user } = useSession();
   const canPickTypes = hasPermission(user, ASSET_TYPES_VIEW);
+  const canPickNrm3 = hasPermission(user, NRM3_CLASSIFICATIONS_VIEW);
   const typesRequest = useApi(canPickTypes ? "/api/asset-types" : null, parseAssetTypeList);
+  const nrm3Request = useApi(
+    canPickNrm3 ? "/api/nrm3-classifications" : null,
+    parseNrm3ClassificationList,
+  );
   const [selectedLocationId, setSelectedLocationId] = useState(locationId ?? "");
   const [assetRef, setAssetRef] = useState("");
   const [assetName, setAssetName] = useState("");
   const [assetTypeId, setAssetTypeId] = useState("");
+  const [nrm3Code, setNrm3Code] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitOfMeasure, setUnitOfMeasure] = useState("");
   const [status, setStatus] = useState<AssetStatus>("active");
@@ -69,6 +81,7 @@ export function AssetForm({
       assetRef,
       assetName,
       assetTypeId,
+      nrm3Code,
       quantity,
       unitOfMeasure,
       status,
@@ -174,6 +187,36 @@ export function AssetForm({
           </p>
         ) : null}
       </div>
+      <div>
+        <label
+          id="asset-nrm3-label"
+          className="block text-sm font-medium text-gray-700"
+          htmlFor="asset-nrm3"
+        >
+          NRM3 classification
+        </label>
+        {canPickNrm3 ? (
+          <Nrm3ClassificationPicker
+            id="asset-nrm3"
+            items={nrm3Request.data ?? []}
+            value={nrm3Code}
+            disabled={pending}
+            loading={nrm3Request.loading}
+            clearLabel="No NRM3 classification"
+            onChange={setNrm3Code}
+          />
+        ) : (
+          <p className="mt-1.5 text-sm text-gray-500">
+            Choosing an NRM3 classification needs access to NRM3 classifications.
+          </p>
+        )}
+        <FieldMessages messages={fieldErrors.nrm3Code} />
+        {nrm3Request.error ? (
+          <p className="mt-1.5 text-sm text-error-500" role="alert">
+            {nrm3Request.error.message}
+          </p>
+        ) : null}
+      </div>
       <TextField
         id="asset-quantity"
         name="quantity"
@@ -272,14 +315,16 @@ function assetPayload(draft: {
   assetRef: string;
   assetName: string;
   assetTypeId: string;
+  nrm3Code: string;
   quantity: string;
   unitOfMeasure: string;
   status: AssetStatus;
 }) {
-  const payload: Record<string, string | number> = {
+  const payload: Record<string, string | number | null> = {
     assetRef: draft.assetRef.trim(),
     assetTypeId: draft.assetTypeId,
     status: draft.status,
+    nrm3Code: draft.nrm3Code.trim() || null,
   };
   const name = draft.assetName.trim();
   const unit = draft.unitOfMeasure.trim();

@@ -21,6 +21,7 @@ import {
   Property,
   PropertyGrid,
 } from "@/components/inline-field";
+import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
@@ -32,12 +33,18 @@ import {
   parseMaintenanceScheduleList,
   type MaintenanceScheduleList,
 } from "@/lib/maintenance-schedules";
+import {
+  nrm3Label,
+  parseNrm3ClassificationList,
+  type Nrm3Classification,
+} from "@/lib/nrm3-classifications";
 import { parseWorkOrderList, type WorkOrderList } from "@/lib/work-orders";
 import {
   ASSET_TYPES_VIEW,
   CLIENTS_EDIT,
   CLIENTS_VIEW,
   MAINTENANCE_TYPES_VIEW,
+  NRM3_CLASSIFICATIONS_VIEW,
   hasPermission,
 } from "@/lib/session";
 import {
@@ -75,6 +82,7 @@ function AssetDetailContent({ id }: { id: string }) {
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const canPickTypes = hasPermission(user, ASSET_TYPES_VIEW);
+  const canPickNrm3 = hasPermission(user, NRM3_CLASSIFICATIONS_VIEW);
   const canPickMaintenanceTypes = hasPermission(user, MAINTENANCE_TYPES_VIEW);
   const tablistId = useId();
   const request = useApi(canView ? `/api/assets/${id}` : null, parseAssetBody);
@@ -85,6 +93,10 @@ function AssetDetailContent({ id }: { id: string }) {
   const typesRequest = useApi(
     canView && canEdit && canPickTypes ? "/api/asset-types" : null,
     parseAssetTypeList,
+  );
+  const nrm3Request = useApi(
+    canView && canEdit && canPickNrm3 ? "/api/nrm3-classifications" : null,
+    parseNrm3ClassificationList,
   );
   const schedulesRequest = useApi(
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
@@ -337,6 +349,16 @@ function AssetDetailContent({ id }: { id: string }) {
               await saveAsset({ assetTypeId });
             }}
           />
+          <Nrm3Field
+            asset={asset}
+            editable={canEdit && canPickNrm3}
+            items={nrm3Request.data ?? []}
+            loading={nrm3Request.loading}
+            itemsError={nrm3Request.error?.message ?? null}
+            onSave={async (nextCode) => {
+              await saveAsset({ nrm3Code: nextCode || null });
+            }}
+          />
           <InlineSelect
             label="Status"
             field="status"
@@ -571,6 +593,71 @@ function AssetTypeField({
         </>
       ) : (
         <span>{asset.assetType.name}</span>
+      )}
+    </Property>
+  );
+}
+
+function Nrm3Field({
+  asset,
+  editable,
+  items,
+  loading,
+  itemsError,
+  onSave,
+}: {
+  asset: Asset;
+  editable: boolean;
+  items: Nrm3Classification[];
+  loading: boolean;
+  itemsError: string | null;
+  onSave: (nrm3Code: string) => Promise<void>;
+}) {
+  const [error, setError] = useState<ApiRequestError | null>(null);
+  const [pending, setPending] = useState(false);
+  const currentCode = asset.nrm3Code ?? "";
+
+  return (
+    <Property label="NRM3">
+      {editable ? (
+        <>
+          <Nrm3ClassificationPicker
+            id={`asset-${asset.id}-nrm3`}
+            items={items}
+            value={currentCode}
+            disabled={pending}
+            loading={loading}
+            clearLabel="No NRM3 classification"
+            onChange={(code) => {
+              if (code === currentCode || pending) {
+                return;
+              }
+
+              setPending(true);
+              setError(null);
+              void onSave(code)
+                .catch((caught) => {
+                  setError(asApiError(caught));
+                })
+                .finally(() => {
+                  setPending(false);
+                });
+            }}
+          />
+          {itemsError ? (
+            <p className="mt-1.5 text-sm text-error-500" role="alert">
+              {itemsError}
+            </p>
+          ) : null}
+          {error ? (
+            <>
+              <FormBanner message={bannerMessage(error.message, error.fieldErrors)} />
+              <FieldMessages messages={error.fieldErrors.nrm3Code} />
+            </>
+          ) : null}
+        </>
+      ) : (
+        <span>{nrm3Label(asset.nrm3Classification)}</span>
       )}
     </Property>
   );
