@@ -199,7 +199,7 @@ export function Nrm3ClassificationPicker({
     : undefined;
 
   return (
-    <div ref={rootRef} className="relative mt-1.5">
+    <div ref={rootRef} className="relative mt-1.5 min-w-0 max-w-full">
       <button
         ref={buttonRef}
         id={id}
@@ -224,7 +224,7 @@ export function Nrm3ClassificationPicker({
           setQuery("");
           setOpen(true);
         }}
-        className="flex h-11 w-full items-center gap-3 rounded-lg border border-gray-300 bg-transparent py-0 pr-4 pl-3 text-left shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
+        className="flex h-11 w-full max-w-full min-w-0 items-center gap-3 rounded-lg border border-gray-300 bg-transparent py-0 pr-4 pl-3 text-left shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-gray-100 disabled:opacity-60"
       >
         {selected ? (
           <>

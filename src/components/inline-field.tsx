@@ -229,7 +229,7 @@ export function InlineSelect({
               aria-label={label}
               value={value}
               disabled={pending}
-              className={`${inputClassName} mt-0 min-w-48 flex-1`}
+              className={`${inputClassName} mt-0 min-w-0 w-full flex-1`}
               onChange={(event) => {
                 void commit(event.target.value);
               }}
@@ -474,9 +474,9 @@ export function Property({
   children: React.ReactNode;
 }) {
   return (
-    <div className={wide ? "sm:col-span-2 xl:col-span-3" : className}>
+    <div className={wide ? "min-w-0 sm:col-span-2 xl:col-span-3" : `min-w-0 ${className ?? ""}`}>
       <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-gray-800">{children}</dd>
+      <dd className="mt-1 min-w-0 text-sm font-medium text-gray-800">{children}</dd>
     </div>
   );
 }

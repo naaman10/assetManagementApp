@@ -341,7 +341,7 @@ function AssetDetailContent({ id }: { id: string }) {
           { label: asset.assetName ?? asset.tag },
         ]}
       />
-      <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
         <div className="grid min-w-0 gap-8">
           <section>
             <p className="text-sm text-gray-500">Asset</p>
@@ -610,9 +610,9 @@ function AssetDetailContent({ id }: { id: string }) {
           </section>
         </div>
 
-        <aside className="rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
+        <aside className="min-w-0 rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
           <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-          <dl className="mt-5 grid gap-5">
+          <dl className="mt-5 grid min-w-0 gap-5 [&>*]:min-w-0">
             <InlineSelect
               label="Status"
               field="status"
