@@ -204,7 +204,7 @@ export function AssetTypePicker({
         <Chevron />
       </button>
       {open ? (
-        <div className="absolute z-30 mt-1.5 w-full rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs">
+        <div className="absolute top-full right-0 z-40 mt-1.5 w-max min-w-full max-w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs">
           <div className="relative">
             <SearchIcon />
             <input
@@ -272,11 +272,11 @@ export function AssetTypePicker({
                         <TypeMark label={initials(assetType.name)} />
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-gray-800">
+                        <span className="block text-sm font-medium whitespace-normal text-gray-800">
                           {assetType.name}
                         </span>
                         {showCode && !assetType.clear ? (
-                          <span className="block truncate text-xs text-gray-500">
+                          <span className="block text-xs whitespace-normal text-gray-500">
                             {assetType.code}
                           </span>
                         ) : null}

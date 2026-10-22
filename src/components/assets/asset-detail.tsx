@@ -610,9 +610,9 @@ function AssetDetailContent({ id }: { id: string }) {
           </section>
         </div>
 
-        <aside className="min-w-0 rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
+        <aside className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
           <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-          <dl className="mt-5 grid min-w-0 gap-5 [&>*]:min-w-0">
+          <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
             <InlineSelect
               label="Status"
               field="status"
