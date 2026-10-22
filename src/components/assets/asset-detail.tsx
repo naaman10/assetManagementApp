@@ -330,13 +330,12 @@ function AssetDetailContent({ id }: { id: string }) {
             await saveAsset({ assetName: assetName || null });
           }}
         />
-        <PropertyGrid columns={2}>
+        <PropertyGrid columns={3}>
           <InlineText
             label="Reference"
             field="assetRef"
             value={asset.assetRef}
             editable={canEdit}
-            className="sm:col-span-2"
             maxLength={200}
             onSave={async (assetRef) => {
               if (!assetRef) {
@@ -346,6 +345,29 @@ function AssetDetailContent({ id }: { id: string }) {
               }
 
               await saveAsset({ assetRef });
+            }}
+          />
+          <InlineText
+            label="Tag"
+            field="tag"
+            value={asset.tag ?? ""}
+            editable={canEdit}
+            maxLength={150}
+            onSave={async (tag) => {
+              await saveAsset({ tag: tag || null });
+            }}
+          />
+          <InlineSelect
+            label="Status"
+            field="status"
+            value={asset.status}
+            editable={canEdit}
+            options={ASSET_STATUSES.map((status) => ({
+              value: status,
+              label: assetStatusLabel(status),
+            }))}
+            onSave={async (status) => {
+              await saveAsset({ status: status as AssetStatus });
             }}
           />
           <AssetTypeField
@@ -436,29 +458,6 @@ function AssetDetailContent({ id }: { id: string }) {
               }
 
               await saveAsset({ yearOfManufacture: year });
-            }}
-          />
-          <InlineText
-            label="Tag"
-            field="tag"
-            value={asset.tag ?? ""}
-            editable={canEdit}
-            maxLength={150}
-            onSave={async (tag) => {
-              await saveAsset({ tag: tag || null });
-            }}
-          />
-          <InlineSelect
-            label="Status"
-            field="status"
-            value={asset.status}
-            editable={canEdit}
-            options={ASSET_STATUSES.map((status) => ({
-              value: status,
-              label: assetStatusLabel(status),
-            }))}
-            onSave={async (status) => {
-              await saveAsset({ status: status as AssetStatus });
             }}
           />
           <InlineText
