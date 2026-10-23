@@ -19,9 +19,7 @@ export function LocationTree({
   locations: Location[];
 }) {
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(locations.map((location) => [location.id, true])),
-  );
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const children = buildLocationTree(locations);
   const searching = query.trim().length > 0;
   const rows = searching

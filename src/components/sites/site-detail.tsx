@@ -20,7 +20,7 @@ import {
   InlineSelect,
   InlineText,
   InlineTitle,
-  PropertyGrid,
+  Property,
 } from "@/components/inline-field";
 import { LocationPicker } from "@/components/locations/location-picker";
 import { LocationTree } from "@/components/locations/location-tree";
@@ -182,10 +182,10 @@ export function SiteDetailView({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-8">
-      <section className="rounded-card bg-surface p-6 shadow-card sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="min-w-0">
+    <div className="grid min-w-0 gap-8">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
+        <div className="grid min-w-0 gap-8">
+          <section>
             <Link
               href={`/clients/${site.client.id}`}
               className="flex w-fit items-center gap-3"
@@ -212,7 +212,7 @@ export function SiteDetailView({ id }: { id: string }) {
                 await saveSite({ name });
               }}
             />
-            <PropertyGrid>
+            <div className="mt-3 max-w-md">
               <InlineText
                 label="Reference"
                 field="reference"
@@ -223,99 +223,116 @@ export function SiteDetailView({ id }: { id: string }) {
                   await saveSite({ reference: reference || null });
                 }}
               />
-              <InlineSelect
-                label="Contact"
-                field="contactId"
-                value={site.contact.id}
-                editable={canEdit}
-                options={contactChoices.map((contact) => ({
-                  value: contact.id,
-                  label: contact.name,
-                }))}
-                aside={<ContactActions contact={site.contact} />}
-                onSave={async (contactId) => {
-                  await saveSite({ contactId });
-                }}
-              />
-              <InlineAddress
-                address={site.address}
-                editable={canEdit}
-                onSave={async (address) => {
-                  await saveSite({ address });
-                }}
-              />
-            </PropertyGrid>
-          </div>
-        </div>
-      </section>
-      <section>
-        <div
-          role="tablist"
-          aria-label="Site records"
-          className="flex flex-wrap gap-6 border-b border-gray-200"
-        >
-          {tabs.map((item) => {
-            const selected = tab === item.id;
+            </div>
+          </section>
 
-            return (
-              <button
+          <section>
+            <div
+              role="tablist"
+              aria-label="Site records"
+              className="flex flex-wrap gap-6 border-b border-gray-200"
+            >
+              {tabs.map((item) => {
+                const selected = tab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    id={`${tablistId}-${item.id}`}
+                    aria-selected={selected}
+                    aria-controls={`${tablistId}-${item.id}-panel`}
+                    onClick={() => {
+                      setTab(item.id);
+                    }}
+                    className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                      selected
+                        ? "border-brand-500 text-brand-500"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {item.label}
+                    <span className="ml-2 font-medium text-gray-500">
+                      {item.id === "locations"
+                        ? site.locationCount
+                        : assetList.assetCount}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {tabs.map((item) => (
+              <div
                 key={item.id}
-                type="button"
-                role="tab"
-                id={`${tablistId}-${item.id}`}
-                aria-selected={selected}
-                aria-controls={`${tablistId}-${item.id}-panel`}
-                onClick={() => {
-                  setTab(item.id);
-                }}
-                className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
-                  selected
-                    ? "border-brand-500 text-brand-500"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
+                role="tabpanel"
+                id={`${tablistId}-${item.id}-panel`}
+                aria-labelledby={`${tablistId}-${item.id}`}
+                hidden={tab !== item.id}
+                className="mt-6"
               >
-                {item.label}
-                <span className="ml-2 font-medium text-gray-500">
-                  {item.id === "locations" ? site.locationCount : assetList.assetCount}
-                </span>
-              </button>
-            );
-          })}
+                {item.id === "locations" ? (
+                  <Locations
+                    siteId={site.id}
+                    locations={site.locations}
+                    canEdit={canEdit}
+                    onSite={setSaved}
+                    onMissing={() => {
+                      router.replace("/sites");
+                    }}
+                  />
+                ) : (
+                  <SiteAssets
+                    siteId={site.id}
+                    locations={site.locations}
+                    assets={assetList}
+                    canEdit={canEdit}
+                    onAssets={setSavedAssets}
+                    onShowLocations={() => {
+                      setTab("locations");
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </section>
         </div>
-        {tabs.map((item) => (
-          <div
-            key={item.id}
-            role="tabpanel"
-            id={`${tablistId}-${item.id}-panel`}
-            aria-labelledby={`${tablistId}-${item.id}`}
-            hidden={tab !== item.id}
-            className="mt-6"
-          >
-            {item.id === "locations" ? (
-              <Locations
-                siteId={site.id}
-                locations={site.locations}
-                canEdit={canEdit}
-                onSite={setSaved}
-                onMissing={() => {
-                  router.replace("/sites");
-                }}
-              />
-            ) : (
-              <SiteAssets
-                siteId={site.id}
-                locations={site.locations}
-                assets={assetList}
-                canEdit={canEdit}
-                onAssets={setSavedAssets}
-                onShowLocations={() => {
-                  setTab("locations");
-                }}
-              />
-            )}
-          </div>
-        ))}
-      </section>
+
+        <aside className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
+          <h2 className="text-sm font-semibold text-gray-800">Details</h2>
+          <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
+            <InlineSelect
+              label="Contact"
+              field="contactId"
+              value={site.contact.id}
+              editable={canEdit}
+              options={contactChoices.map((contact) => ({
+                value: contact.id,
+                label: contact.name,
+              }))}
+              aside={<ContactActions contact={site.contact} />}
+              onSave={async (contactId) => {
+                await saveSite({ contactId });
+              }}
+            />
+            <InlineAddress
+              address={site.address}
+              editable={canEdit}
+              onSave={async (address) => {
+                await saveSite({ address });
+              }}
+            />
+            <Property label="Client">
+              <Link
+                href={`/clients/${site.client.id}`}
+                className="text-brand-500 hover:underline"
+              >
+                {site.client.name}
+              </Link>
+            </Property>
+          </dl>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -357,22 +374,11 @@ function SiteAssets({
   }
 
   return (
-    <section>
-      {canEdit && !adding ? (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className={secondaryButtonClassName}
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            Add asset
-          </button>
-        </div>
-      ) : null}
+    <section className="grid gap-3">
       {assets.assets.length === 0 ? (
-        <p className="text-sm text-gray-500">No assets yet.</p>
+        !canEdit ? (
+          <p className="text-sm text-gray-500">No assets yet.</p>
+        ) : null
       ) : (
         <AssetTable
           assets={assets.assets}
@@ -380,6 +386,22 @@ function SiteAssets({
           locations={locations}
         />
       )}
+      {canEdit ? (
+        <div>
+          <button
+            type="button"
+            className={sectionAddButtonClassName}
+            onClick={() => {
+              setAdding((current) => !current);
+            }}
+          >
+            <span aria-hidden="true" className="text-base leading-none">
+              +
+            </span>
+            {adding ? "Cancel" : "Add"}
+          </button>
+        </div>
+      ) : null}
       {adding ? (
         <Modal
           title="Add asset"
@@ -456,19 +478,6 @@ function Locations({
 
   return (
     <section>
-      {canEdit && !adding ? (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className={secondaryButtonClassName}
-            onClick={() => {
-              setAdding(true);
-            }}
-          >
-            Add location
-          </button>
-        </div>
-      ) : null}
       {listRequest.loading && !listRequest.data && !savedLocations ? (
         <p className="mt-6 text-sm text-gray-500">Loading locations…</p>
       ) : listRequest.error && !savedLocations ? (
@@ -478,6 +487,22 @@ function Locations({
       ) : (
         <LocationTree locations={locations} />
       )}
+      {canEdit ? (
+        <div className="mt-3">
+          <button
+            type="button"
+            className={sectionAddButtonClassName}
+            onClick={() => {
+              setAdding((current) => !current);
+            }}
+          >
+            <span aria-hidden="true" className="text-base leading-none">
+              +
+            </span>
+            {adding ? "Cancel" : "Add"}
+          </button>
+        </div>
+      ) : null}
       {adding ? (
         <Modal
           title="Add location"
@@ -506,6 +531,9 @@ function Locations({
     </section>
   );
 }
+
+const sectionAddButtonClassName =
+  "inline-flex items-center gap-1 text-sm font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50";
 
 function LocationForm({
   siteId,

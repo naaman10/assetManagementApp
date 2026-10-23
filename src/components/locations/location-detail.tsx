@@ -502,35 +502,6 @@ function SectionAddButton({
   );
 }
 
-function SectionAddActions({
-  canAdd,
-  creating,
-  linking,
-  onToggleCreate,
-  onToggleLink,
-}: {
-  canAdd: boolean;
-  creating: boolean;
-  linking: boolean;
-  onToggleCreate: () => void;
-  onToggleLink: () => void;
-}) {
-  if (!canAdd) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <SectionAddButton label="Add" active={creating} onClick={onToggleCreate} />
-      <SectionAddButton
-        label="Add existing"
-        active={linking}
-        onClick={onToggleLink}
-      />
-    </div>
-  );
-}
-
 function ChildLocationsSection({
   parent,
   locations,
@@ -547,7 +518,7 @@ function ChildLocationsSection({
   onMissing: () => void;
 }) {
   const [creating, setCreating] = useState(false);
-  const [linking, setLinking] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [pending, setPending] = useState(false);
@@ -562,8 +533,8 @@ function ChildLocationsSection({
       `${locationLabel(location)} ${location.locationCode ?? ""} ${locationTypeLabel(location.locationType)}`,
   );
 
-  function closeLink() {
-    setLinking(false);
+  function closeAdd() {
+    setAdding(false);
     setQuery("");
     setHighlight(0);
     setLinkError(null);
@@ -585,7 +556,7 @@ function ChildLocationsSection({
         }),
       );
       await onChanged();
-      closeLink();
+      closeAdd();
     } catch (caught) {
       setLinkError(asApiError(caught).message);
     } finally {
@@ -593,36 +564,58 @@ function ChildLocationsSection({
     }
   }
 
-  const actions = (
-    <SectionAddActions
-      canAdd={canAdd}
-      creating={creating}
-      linking={linking}
-      onToggleCreate={() => {
-        closeLink();
-        setCreating((current) => !current);
-      }}
-      onToggleLink={() => {
-        setCreating(false);
-        if (linking) {
-          closeLink();
+  const addButton = canAdd ? (
+    <SectionAddButton
+      label="Add"
+      active={adding || creating}
+      onClick={() => {
+        if (adding || creating) {
+          closeAdd();
+          setCreating(false);
           return;
         }
 
         setLinkError(null);
-        setLinking(true);
+        setAdding(true);
       }}
     />
-  );
+  ) : null;
 
   return (
     <section>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2">
+      <div className="border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Child locations</h2>
-        {childLocations.length > 0 || creating || linking ? actions : null}
       </div>
-      <div className="mt-3">
-        {linking ? (
+      <div className="mt-3 grid gap-3">
+        {childLocations.length > 0 ? (
+          <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
+            {childLocations.map((child) => (
+              <li key={child.id}>
+                <Link
+                  href={`/locations/${child.id}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50"
+                >
+                  <span className="text-sm font-medium text-gray-800">
+                    {locationLabel(child)}
+                  </span>
+                  <Badge tone="light">{locationTypeLabel(child.locationType)}</Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : !canAdd && !adding && !creating ? (
+          parent.locationType == null ? (
+            <p className="text-sm text-gray-500">
+              Set a type before adding child locations.
+            </p>
+          ) : parent.locationType === "room" ? (
+            <p className="text-sm text-gray-500">Rooms cannot have child locations.</p>
+          ) : (
+            <p className="text-sm text-gray-500">No child locations.</p>
+          )
+        ) : null}
+        {addButton}
+        {adding ? (
           <ExistingPicker
             id={`location-${parent.id}-add-child`}
             query={query}
@@ -641,7 +634,12 @@ function ChildLocationsSection({
             listLabel="Matching locations"
             emptyLabel="No locations available to link."
             noMatchLabel="No locations match."
-            onClose={closeLink}
+            createLabel="Create new location"
+            onCreate={() => {
+              closeAdd();
+              setCreating(true);
+            }}
+            onClose={closeAdd}
             onSelect={(item) => {
               void attachChild(item.id);
             }}
@@ -659,36 +657,6 @@ function ChildLocationsSection({
               </>
             )}
           />
-        ) : null}
-        {childLocations.length === 0 && !creating && !linking ? (
-          canAdd ? (
-            actions
-          ) : parent.locationType == null ? (
-            <p className="text-sm text-gray-500">
-              Set a type before adding child locations.
-            </p>
-          ) : parent.locationType === "room" ? (
-            <p className="text-sm text-gray-500">Rooms cannot have child locations.</p>
-          ) : (
-            <p className="text-sm text-gray-500">No child locations.</p>
-          )
-        ) : null}
-        {childLocations.length > 0 ? (
-          <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-            {childLocations.map((child) => (
-              <li key={child.id}>
-                <Link
-                  href={`/locations/${child.id}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50"
-                >
-                  <span className="text-sm font-medium text-gray-800">
-                    {locationLabel(child)}
-                  </span>
-                  <Badge tone="light">{locationTypeLabel(child.locationType)}</Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
         ) : null}
         {creating ? (
           <Modal
@@ -735,7 +703,7 @@ function LocationAssetsSection({
   onCreated: (asset: AssetList["assets"][number]) => void;
 }) {
   const [creating, setCreating] = useState(false);
-  const [linking, setLinking] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [pending, setPending] = useState(false);
@@ -754,8 +722,8 @@ function LocationAssetsSection({
     (asset) => `${asset.tag} ${asset.assetName ?? ""}`,
   );
 
-  function closeLink() {
-    setLinking(false);
+  function closeAdd() {
+    setAdding(false);
     setQuery("");
     setHighlight(0);
     setLinkError(null);
@@ -777,7 +745,7 @@ function LocationAssetsSection({
         }),
       );
       onChanged();
-      closeLink();
+      closeAdd();
     } catch (caught) {
       setLinkError(asApiError(caught).message);
     } finally {
@@ -785,36 +753,36 @@ function LocationAssetsSection({
     }
   }
 
-  const actions = (
-    <SectionAddActions
-      canAdd={canEdit}
-      creating={creating}
-      linking={linking}
-      onToggleCreate={() => {
-        closeLink();
-        setCreating((current) => !current);
-      }}
-      onToggleLink={() => {
-        setCreating(false);
-        if (linking) {
-          closeLink();
+  const addButton = canEdit ? (
+    <SectionAddButton
+      label="Add"
+      active={adding || creating}
+      onClick={() => {
+        if (adding || creating) {
+          closeAdd();
+          setCreating(false);
           return;
         }
 
         setLinkError(null);
-        setLinking(true);
+        setAdding(true);
       }}
     />
-  );
+  ) : null;
 
   return (
     <section>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2">
+      <div className="border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Assets</h2>
-        {assets.assets.length > 0 || creating || linking ? actions : null}
       </div>
-      <div className="mt-3">
-        {linking ? (
+      <div className="mt-3 grid gap-3">
+        {assets.assets.length > 0 ? (
+          <AssetTable assets={assets.assets} locations={locations} />
+        ) : !canEdit && !adding && !creating ? (
+          <p className="text-sm text-gray-500">No assets yet.</p>
+        ) : null}
+        {addButton}
+        {adding ? (
           <ExistingPicker
             id={`location-${locationId}-add-asset`}
             query={query}
@@ -833,7 +801,12 @@ function LocationAssetsSection({
             listLabel="Matching assets"
             emptyLabel="No assets available to link."
             noMatchLabel="No assets match."
-            onClose={closeLink}
+            createLabel="Create new asset"
+            onCreate={() => {
+              closeAdd();
+              setCreating(true);
+            }}
+            onClose={closeAdd}
             onSelect={(item) => {
               void attachAsset(item.id);
             }}
@@ -851,15 +824,6 @@ function LocationAssetsSection({
               </>
             )}
           />
-        ) : null}
-        {assets.assets.length === 0 && !creating && !linking ? (
-          canEdit ? (
-            actions
-          ) : (
-            <p className="text-sm text-gray-500">No assets yet.</p>
-          )
-        ) : assets.assets.length > 0 ? (
-          <AssetTable assets={assets.assets} locations={locations} />
         ) : null}
         {creating ? (
           <Modal
@@ -900,6 +864,8 @@ function ExistingPicker<T extends { id: string }>({
   listLabel,
   emptyLabel,
   noMatchLabel,
+  createLabel,
+  onCreate,
   onClose,
   onSelect,
   renderRow,
@@ -918,6 +884,8 @@ function ExistingPicker<T extends { id: string }>({
   listLabel: string;
   emptyLabel: string;
   noMatchLabel: string;
+  createLabel: string;
+  onCreate: () => void;
   onClose: () => void;
   onSelect: (item: T) => void;
   renderRow: (item: T) => React.ReactNode;
@@ -1024,11 +992,21 @@ function ExistingPicker<T extends { id: string }>({
           })
         )}
       </ul>
-      {error ? (
-        <p className="mt-2 text-sm text-error-500" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onCreate}
+          className="text-sm font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
+        >
+          {createLabel}
+        </button>
+        {error ? (
+          <p className="text-sm text-error-500" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
