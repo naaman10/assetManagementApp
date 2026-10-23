@@ -13,10 +13,12 @@ import {
 import { assetStatusLabel } from "@/components/assets/asset-table";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { ParentAssetPicker } from "@/components/assets/parent-asset-picker";
+import { LocationPicker } from "@/components/locations/location-picker";
 import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi, type FieldErrors } from "@/lib/api-client";
 import { parseAssetTypeList } from "@/lib/asset-types";
+import type { Location } from "@/lib/locations";
 import { parseNrm3ClassificationList } from "@/lib/nrm3-classifications";
 import {
   ASSET_TYPES_VIEW,
@@ -29,7 +31,6 @@ import {
   parseAssetList,
   type Asset,
   type AssetStatus,
-  type SiteLocation,
 } from "@/lib/sites";
 
 export function AssetForm({
@@ -38,7 +39,7 @@ export function AssetForm({
   onCancel,
   onCreated,
 }: {
-  locations?: SiteLocation[];
+  locations?: Location[];
   locationId?: string;
   onCancel: () => void;
   onCreated: (asset: Asset) => void;
@@ -129,25 +130,19 @@ export function AssetForm({
           <label className="block text-sm font-medium text-gray-700" htmlFor="asset-location">
             Location
           </label>
-          <select
-            id="asset-location"
-            name="locationId"
-            required
-            value={selectedLocationId}
-            disabled={pending}
-            onChange={(event) => {
-              setSelectedLocationId(event.target.value);
-              setParentAssetId("");
-            }}
-            className={inputClassName}
-          >
-            <option value="">Choose a location</option>
-            {(locations ?? []).map((location) => (
-              <option key={location.id} value={location.id}>
-                {locationOptionLabel(location)}
-              </option>
-            ))}
-          </select>
+          <div className="mt-1.5">
+            <LocationPicker
+              id="asset-location"
+              locations={locations ?? []}
+              value={selectedLocationId}
+              disabled={pending}
+              placeholder="Choose a location"
+              onChange={(next) => {
+                setSelectedLocationId(next);
+                setParentAssetId("");
+              }}
+            />
+          </div>
           <FieldMessages messages={fieldErrors.locationId} />
         </div>
       )}
@@ -482,12 +477,4 @@ function parseYear(value: string): number | null {
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function locationOptionLabel(location: SiteLocation): string {
-  if (location.name && location.locationCode) {
-    return `${location.name} · ${location.locationCode}`;
-  }
-
-  return location.name ?? location.locationCode ?? "Location";
 }

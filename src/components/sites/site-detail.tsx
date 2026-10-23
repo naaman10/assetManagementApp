@@ -8,10 +8,10 @@ import { AssetTable } from "@/components/assets/asset-table";
 import { ClientLogo } from "@/components/clients/client-logo";
 import { Forbidden } from "@/components/forbidden";
 import {
-  DataTable,
   FormBanner,
   TextField,
   bannerMessage,
+  inputClassName,
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/form-controls";
@@ -22,15 +22,29 @@ import {
   InlineTitle,
   PropertyGrid,
 } from "@/components/inline-field";
+import { LocationPicker } from "@/components/locations/location-picker";
+import { LocationTree } from "@/components/locations/location-tree";
 import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseClientBody } from "@/lib/clients";
+import {
+  LOCATION_STATUSES,
+  LOCATION_TYPES,
+  locationStatusLabel,
+  locationTypeLabel,
+  parentAllowsRoot,
+  parentRequiresRoot,
+  parseLocationBody,
+  parseLocationList,
+  type Location,
+  type LocationStatus,
+  type LocationType,
+} from "@/lib/locations";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 import {
   includeAsset,
   parseAssetList,
-  parseLocationBody,
   parseSiteDetail,
   type AssetList,
   type SiteContact as Contact,
@@ -308,7 +322,7 @@ export function SiteDetailView({ id }: { id: string }) {
 
 function SiteAssets({
   siteId,
-  locations,
+  locations: nestedLocations,
   assets,
   canEdit,
   onAssets,
@@ -323,6 +337,8 @@ function SiteAssets({
 }) {
   const [adding, setAdding] = useState(false);
   const [openForSite, setOpenForSite] = useState(siteId);
+  const listRequest = useApi(`/api/sites/${siteId}/locations`, parseLocationList);
+  const locations = listRequest.data?.locations ?? nestedLocations;
 
   if (openForSite !== siteId) {
     setOpenForSite(siteId);
@@ -358,7 +374,11 @@ function SiteAssets({
       {assets.assets.length === 0 ? (
         <p className="text-sm text-gray-500">No assets yet.</p>
       ) : (
-        <AssetTable assets={assets.assets} includeLocation />
+        <AssetTable
+          assets={assets.assets}
+          includeLocation
+          locations={locations}
+        />
       )}
       {adding ? (
         <Modal
@@ -410,7 +430,7 @@ function SiteAssets({
 
 function Locations({
   siteId,
-  locations,
+  locations: nestedLocations,
   canEdit,
   onSite,
   onMissing,
@@ -423,10 +443,15 @@ function Locations({
 }) {
   const [adding, setAdding] = useState(false);
   const [openForSite, setOpenForSite] = useState(siteId);
+  const [savedLocations, setSavedLocations] = useState<Location[] | null>(null);
+  const listRequest = useApi(`/api/sites/${siteId}/locations`, parseLocationList);
+  const locations =
+    savedLocations ?? listRequest.data?.locations ?? nestedLocations;
 
   if (openForSite !== siteId) {
     setOpenForSite(siteId);
     setAdding(false);
+    setSavedLocations(null);
   }
 
   return (
@@ -444,26 +469,14 @@ function Locations({
           </button>
         </div>
       ) : null}
-      {locations.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-500">No locations yet.</p>
+      {listRequest.loading && !listRequest.data && !savedLocations ? (
+        <p className="mt-6 text-sm text-gray-500">Loading locations…</p>
+      ) : listRequest.error && !savedLocations ? (
+        <p className="mt-6 text-sm text-error-600" role="alert">
+          {asApiError(listRequest.error).message}
+        </p>
       ) : (
-        <DataTable columns={["Name", "Location code"]}>
-          {locations.map((location) => (
-            <tr key={location.id} className="hover:bg-gray-50">
-              <td className="px-5 py-4">
-                <Link
-                  href={`/locations/${location.id}`}
-                  className="text-sm font-medium text-gray-800"
-                >
-                  {locationLinkText(location)}
-                </Link>
-              </td>
-              <td className="px-5 py-4 text-sm text-gray-500">
-                {location.locationCode ?? "—"}
-              </td>
-            </tr>
-          ))}
-        </DataTable>
+        <LocationTree locations={locations} />
       )}
       {adding ? (
         <Modal
@@ -474,12 +487,17 @@ function Locations({
         >
           <LocationForm
             siteId={siteId}
+            locations={locations}
             onCancel={() => {
               setAdding(false);
             }}
-            onCreated={(site) => {
+            onCreated={async () => {
               setAdding(false);
-              onSite(site);
+              const list = parseLocationList(
+                await apiRequest(`/api/sites/${siteId}/locations`),
+              );
+              setSavedLocations(list.locations);
+              onSite(parseSiteDetail(await apiRequest(`/api/sites/${siteId}`)));
             }}
             onMissing={onMissing}
           />
@@ -491,26 +509,56 @@ function Locations({
 
 function LocationForm({
   siteId,
+  locations,
   onCancel,
   onCreated,
   onMissing,
 }: {
   siteId: string;
+  locations: Location[];
   onCancel: () => void;
-  onCreated: (site: SiteDetail) => void;
+  onCreated: () => Promise<void>;
   onMissing: () => void;
 }) {
   const [name, setName] = useState("");
   const [locationCode, setLocationCode] = useState("");
+  const [locationType, setLocationType] = useState<"" | LocationType>("");
+  const [parentLocationId, setParentLocationId] = useState("");
+  const [status, setStatus] = useState<LocationStatus>("active");
+  const [description, setDescription] = useState("");
+  const [department, setDepartment] = useState("");
+  const [uprn, setUprn] = useState("");
+  const [address, setAddress] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [pending, setPending] = useState(false);
   const fieldErrors = error?.fieldErrors ?? {};
+  const typeValue = locationType === "" ? null : locationType;
+  const rootOnly = parentRequiresRoot(typeValue);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = locationPayload(name, locationCode);
+    const payload = createLocationPayload({
+      name,
+      locationCode,
+      locationType: typeValue,
+      parentLocationId: rootOnly ? "" : parentLocationId,
+      status,
+      description,
+      department,
+      uprn,
+      address,
+      latitude,
+      longitude,
+    });
 
-    if (!payload) {
+    if ("error" in payload) {
+      setError(payload.error);
+      return;
+    }
+
+    if (!payload.body.name && !payload.body.locationCode) {
       setError(new ApiRequestError(400, "Enter a name or a location code."));
       return;
     }
@@ -522,10 +570,10 @@ function LocationForm({
       parseLocationBody(
         await apiRequest(`/api/sites/${siteId}/locations`, {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload.body),
         }),
       );
-      onCreated(parseSiteDetail(await apiRequest(`/api/sites/${siteId}`)));
+      await onCreated();
     } catch (caught) {
       const apiError = asApiError(caught);
 
@@ -540,7 +588,7 @@ function LocationForm({
   }
 
   return (
-    <form className="grid gap-5" onSubmit={onSubmit}>
+    <form className="grid max-h-[70vh] gap-5 overflow-y-auto pr-1" onSubmit={onSubmit}>
       <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
       <TextField
         id={`location-${siteId}-name`}
@@ -556,9 +604,9 @@ function LocationForm({
       />
       <TextField
         id={`location-${siteId}-code`}
-        label="Location code"
+        label="Code"
         name="locationCode"
-        maxLength={200}
+        maxLength={100}
         value={locationCode}
         disabled={pending}
         messages={fieldErrors.locationCode}
@@ -566,6 +614,148 @@ function LocationForm({
           setLocationCode(event.target.value);
         }}
       />
+      <div>
+        <label className="block text-sm font-medium text-gray-700" htmlFor={`location-${siteId}-type`}>
+          Type
+        </label>
+        <select
+          id={`location-${siteId}-type`}
+          value={locationType}
+          disabled={pending}
+          onChange={(event) => {
+            const next = event.target.value as "" | LocationType;
+            setLocationType(next);
+
+            if (parentRequiresRoot(next === "" ? null : next)) {
+              setParentLocationId("");
+            }
+          }}
+          className={inputClassName}
+        >
+          <option value="">Unclassified</option>
+          {LOCATION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {locationTypeLabel(type)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label
+          id={`location-${siteId}-parent-label`}
+          className="block text-sm font-medium text-gray-700"
+          htmlFor={`location-${siteId}-parent`}
+        >
+          Parent location
+        </label>
+        <LocationPicker
+          id={`location-${siteId}-parent`}
+          locations={locations}
+          value={parentLocationId}
+          mode="parent"
+          childType={typeValue}
+          disabled={pending || rootOnly}
+          clearLabel={parentAllowsRoot(typeValue) ? "Site (no parent)" : undefined}
+          onChange={setParentLocationId}
+        />
+        {rootOnly ? (
+          <p className="mt-1.5 text-xs text-gray-500">
+            {typeValue === "building" || typeValue == null
+              ? "This type must sit at the site root."
+              : null}
+          </p>
+        ) : null}
+      </div>
+      <div>
+        <label
+          className="block text-sm font-medium text-gray-700"
+          htmlFor={`location-${siteId}-status`}
+        >
+          Status
+        </label>
+        <select
+          id={`location-${siteId}-status`}
+          value={status}
+          disabled={pending}
+          onChange={(event) => {
+            setStatus(event.target.value as LocationStatus);
+          }}
+          className={inputClassName}
+        >
+          {LOCATION_STATUSES.map((value) => (
+            <option key={value} value={value}>
+              {locationStatusLabel(value)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <TextField
+        id={`location-${siteId}-description`}
+        label="Description"
+        value={description}
+        disabled={pending}
+        messages={fieldErrors.description}
+        onChange={(event) => {
+          setDescription(event.target.value);
+        }}
+      />
+      <TextField
+        id={`location-${siteId}-department`}
+        label="Department"
+        value={department}
+        disabled={pending}
+        messages={fieldErrors.department}
+        onChange={(event) => {
+          setDepartment(event.target.value);
+        }}
+      />
+      <TextField
+        id={`location-${siteId}-uprn`}
+        label="UPRN"
+        maxLength={12}
+        value={uprn}
+        disabled={pending}
+        messages={fieldErrors.uprn}
+        onChange={(event) => {
+          setUprn(event.target.value);
+        }}
+      />
+      <TextField
+        id={`location-${siteId}-address`}
+        label="Address"
+        value={address}
+        disabled={pending}
+        messages={fieldErrors.address}
+        onChange={(event) => {
+          setAddress(event.target.value);
+        }}
+      />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <TextField
+          id={`location-${siteId}-latitude`}
+          label="Latitude"
+          type="number"
+          step="any"
+          value={latitude}
+          disabled={pending}
+          messages={fieldErrors.latitude}
+          onChange={(event) => {
+            setLatitude(event.target.value);
+          }}
+        />
+        <TextField
+          id={`location-${siteId}-longitude`}
+          label="Longitude"
+          type="number"
+          step="any"
+          value={longitude}
+          disabled={pending}
+          messages={fieldErrors.longitude}
+          onChange={(event) => {
+            setLongitude(event.target.value);
+          }}
+        />
+      </div>
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={pending} className={primaryButtonClassName}>
           {pending ? "Saving…" : "Add location"}
@@ -583,24 +773,80 @@ function LocationForm({
   );
 }
 
-function locationPayload(name: string, locationCode: string): Record<string, string> | null {
-  const payload: Record<string, string> = {};
-  const trimmedName = name.trim();
-  const trimmedCode = locationCode.trim();
+function createLocationPayload(draft: {
+  name: string;
+  locationCode: string;
+  locationType: LocationType | null;
+  parentLocationId: string;
+  status: LocationStatus;
+  description: string;
+  department: string;
+  uprn: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+}):
+  | { body: Record<string, string | number | null> }
+  | { error: ApiRequestError } {
+  const lat = readOptionalCoordinate(draft.latitude, -90, 90);
+  const lng = readOptionalCoordinate(draft.longitude, -180, 180);
 
-  if (trimmedName) {
-    payload.name = trimmedName;
+  if (lat === false) {
+    return {
+      error: new ApiRequestError(400, "Invalid request", {
+        latitude: ["Enter a latitude between -90 and 90."],
+      }),
+    };
   }
 
-  if (trimmedCode) {
-    payload.locationCode = trimmedCode;
+  if (lng === false) {
+    return {
+      error: new ApiRequestError(400, "Invalid request", {
+        longitude: ["Enter a longitude between -180 and 180."],
+      }),
+    };
   }
 
-  return Object.keys(payload).length > 0 ? payload : null;
+  return {
+    body: {
+      name: emptyToNull(draft.name),
+      locationCode: emptyToNull(draft.locationCode),
+      locationType: draft.locationType,
+      parentLocationId: draft.parentLocationId.trim() || null,
+      status: draft.status,
+      description: emptyToNull(draft.description),
+      department: emptyToNull(draft.department),
+      uprn: emptyToNull(draft.uprn),
+      address: emptyToNull(draft.address),
+      latitude: lat,
+      longitude: lng,
+    },
+  };
 }
 
-function locationLinkText(location: SiteLocation): string {
-  return location.name ?? location.locationCode ?? "Location";
+function readOptionalCoordinate(
+  value: string,
+  min: number,
+  max: number,
+): number | null | false {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const number = Number(trimmed);
+
+  if (!Number.isFinite(number) || number < min || number > max) {
+    return false;
+  }
+
+  return number;
+}
+
+function emptyToNull(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function contactOptions(

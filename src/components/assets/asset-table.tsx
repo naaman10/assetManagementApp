@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { DataTable } from "@/components/form-controls";
 import {
+  locationCompactLabel,
+  type Location,
+} from "@/lib/locations";
+import {
   type Asset,
   type AssetLocation,
   type AssetStatus,
@@ -35,9 +39,12 @@ export function formatQuantity(asset: Asset): string {
 export function AssetTable({
   assets,
   includeLocation = false,
+  locations,
 }: {
   assets: Asset[];
   includeLocation?: boolean;
+  /** When provided, Location column shows leaf · parent instead of a flat name. */
+  locations?: Location[];
 }) {
   if (assets.length === 0) {
     return <p className="text-sm text-gray-500">No assets yet.</p>;
@@ -57,7 +64,9 @@ export function AssetTable({
                 href={`/locations/${asset.location.id}`}
                 className="text-sm font-medium text-gray-800"
               >
-                {locationLabel(asset.location)}
+                {locations
+                  ? locationCompactLabel(locations, asset.location.id, asset.location)
+                  : flatLocationLabel(asset.location)}
               </Link>
             </td>
           ) : null}
@@ -86,6 +95,6 @@ export function AssetTable({
   );
 }
 
-function locationLabel(location: AssetLocation): string {
+function flatLocationLabel(location: AssetLocation): string {
   return location.name ?? location.locationCode ?? "—";
 }

@@ -50,6 +50,13 @@ import {
   hasPermission,
 } from "@/lib/session";
 import {
+  locationLabel,
+  locationPath,
+  locationTypeLabel,
+  parseLocationList,
+  type Location,
+} from "@/lib/locations";
+import {
   ASSET_STATUSES,
   parentAssetLabel,
   parseAssetBody,
@@ -108,6 +115,12 @@ function AssetDetailContent({ id }: { id: string }) {
       ? `/api/sites/${request.data.location.siteId}/assets`
       : null,
     parseAssetList,
+  );
+  const siteLocationsRequest = useApi(
+    canView && request.data
+      ? `/api/sites/${request.data.location.siteId}/locations`
+      : null,
+    parseLocationList,
   );
   const schedulesRequest = useApi(
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-schedules` : null,
@@ -320,12 +333,28 @@ function AssetDetailContent({ id }: { id: string }) {
   }
 
   const siteAssets = (savedSiteAssets ?? siteAssetsRequest.data)?.assets ?? [];
+  const siteLocations = siteLocationsRequest.data?.locations ?? [];
+  const locationTrail = locationPath(siteLocations, asset.location.id);
   const childAssets = siteAssets.filter((candidate) => candidate.parentAssetId === asset.id);
   const parentCandidates = siteAssets.filter((candidate) => candidate.id !== asset.id);
   const childCandidates = siteAssets.filter(
     (candidate) =>
       candidate.id !== asset.id && candidate.parentAssetId !== asset.id,
   );
+  const locationFallback =
+    asset.location.name ?? asset.location.locationCode ?? "Location";
+  const breadcrumbLocationItems =
+    locationTrail.length > 0
+      ? locationTrail.map((item) => ({
+          label: locationLabel(item),
+          href: `/locations/${item.id}`,
+        }))
+      : [
+          {
+            label: locationFallback,
+            href: `/locations/${asset.location.id}`,
+          },
+        ];
 
   return (
     <div className="grid min-w-0 gap-8">
@@ -334,10 +363,7 @@ function AssetDetailContent({ id }: { id: string }) {
         items={[
           { label: asset.client.name, href: `/clients/${asset.client.id}` },
           { label: site.name, href: `/sites/${site.id}` },
-          {
-            label: asset.location.name ?? asset.location.locationCode ?? "Location",
-            href: `/locations/${asset.location.id}`,
-          },
+          ...breadcrumbLocationItems,
           { label: asset.assetName ?? asset.tag },
         ]}
       />
@@ -667,12 +693,14 @@ function AssetDetailContent({ id }: { id: string }) {
               </Link>
             </Property>
             <Property label="Location">
-              <Link
-                href={`/locations/${asset.location.id}`}
-                className="text-brand-500 hover:underline"
-              >
-                {asset.location.name ?? asset.location.locationCode ?? "Location"}
-              </Link>
+              <AssetLocationPath
+                siteName={site.name}
+                siteId={site.id}
+                locations={siteLocations}
+                locationId={asset.location.id}
+                loading={siteLocationsRequest.loading}
+                fallback={locationFallback}
+              />
             </Property>
           </dl>
         </aside>
@@ -1167,5 +1195,63 @@ function ParentAssetField({
         <span>—</span>
       )}
     </Property>
+  );
+}
+
+function AssetLocationPath({
+  siteName,
+  siteId,
+  locations,
+  locationId,
+  loading,
+  fallback,
+}: {
+  siteName: string;
+  siteId: string;
+  locations: Location[];
+  locationId: string;
+  loading: boolean;
+  fallback: string;
+}) {
+  const path = locationPath(locations, locationId);
+  const leaf = path.length > 0 ? path[path.length - 1] : null;
+
+  if (loading && path.length === 0) {
+    return (
+      <Link href={`/locations/${locationId}`} className="text-brand-500 hover:underline">
+        {fallback}
+      </Link>
+    );
+  }
+
+  const segments: Array<{ id: string; label: string }> =
+    path.length > 0
+      ? path.map((item) => ({ id: item.id, label: locationLabel(item) }))
+      : [{ id: locationId, label: fallback }];
+
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+      <Link href={`/sites/${siteId}`} className="text-brand-500 hover:underline">
+        {siteName}
+      </Link>
+      {segments.map((item) => (
+        <span key={item.id} className="contents">
+          <span className="text-gray-400" aria-hidden="true">
+            ›
+          </span>
+          <Link
+            href={`/locations/${item.id}`}
+            className="text-brand-500 hover:underline"
+          >
+            {item.label}
+          </Link>
+        </span>
+      ))}
+      {leaf?.locationType ? (
+        <span className="text-xs font-normal text-gray-500">
+          ({locationTypeLabel(leaf.locationType)})
+        </span>
+      ) : null}
+    </span>
   );
 }

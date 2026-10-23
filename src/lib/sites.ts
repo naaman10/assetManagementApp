@@ -1,4 +1,12 @@
 import type { Address } from "@/lib/clients";
+import {
+  parseLocation as parseLocationRecord,
+  parseLocations,
+  type Location,
+} from "@/lib/locations";
+
+export type { Location };
+export type SiteLocation = Location;
 
 export type SiteContact = {
   id: string;
@@ -27,16 +35,6 @@ export type Site = {
 export type NamedClient = {
   id: string;
   name: string;
-};
-
-export type SiteLocation = {
-  id: string;
-  siteId: string;
-  locationCode: string | null;
-  name: string | null;
-  createdAt: string;
-  updatedAt: string;
-  client?: NamedClient;
 };
 
 export type SiteDetail = Site & {
@@ -165,7 +163,7 @@ export function parseLocationBody(data: unknown): SiteLocation {
     throw new Error("The response was missing a location.");
   }
 
-  return parseLocation(data.location);
+  return parseLocationRecord(data.location);
 }
 
 export function parseSiteDetail(data: unknown): SiteDetail {
@@ -207,32 +205,6 @@ export function includeAsset(list: AssetList, asset: Asset): AssetList {
   return {
     assetCount: list.assetCount + 1,
     assets: [...list.assets, asset],
-  };
-}
-
-function parseLocations(value: unknown): SiteLocation[] {
-  if (value == null) {
-    return [];
-  }
-
-  if (!Array.isArray(value)) {
-    throw new Error("The response could not be read.");
-  }
-
-  return value.map(parseLocation);
-}
-
-function parseLocation(value: unknown): SiteLocation {
-  const record = objectRecord(value, "location");
-
-  return {
-    id: requiredString(record, "id"),
-    siteId: requiredString(record, "siteId"),
-    locationCode: optionalString(record, "locationCode"),
-    name: optionalString(record, "name"),
-    createdAt: optionalString(record, "createdAt") ?? "",
-    updatedAt: optionalString(record, "updatedAt") ?? "",
-    ...(record.client == null ? {} : { client: parseNamedClient(record.client) }),
   };
 }
 
