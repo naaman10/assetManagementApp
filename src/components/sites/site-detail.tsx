@@ -528,9 +528,6 @@ function LocationForm({
   const [description, setDescription] = useState("");
   const [department, setDepartment] = useState("");
   const [uprn, setUprn] = useState("");
-  const [address, setAddress] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [pending, setPending] = useState(false);
   const fieldErrors = error?.fieldErrors ?? {};
@@ -548,15 +545,7 @@ function LocationForm({
       description,
       department,
       uprn,
-      address,
-      latitude,
-      longitude,
     });
-
-    if ("error" in payload) {
-      setError(payload.error);
-      return;
-    }
 
     if (!payload.body.name && !payload.body.locationCode) {
       setError(new ApiRequestError(400, "Enter a name or a location code."));
@@ -720,42 +709,6 @@ function LocationForm({
           setUprn(event.target.value);
         }}
       />
-      <TextField
-        id={`location-${siteId}-address`}
-        label="Address"
-        value={address}
-        disabled={pending}
-        messages={fieldErrors.address}
-        onChange={(event) => {
-          setAddress(event.target.value);
-        }}
-      />
-      <div className="grid gap-5 sm:grid-cols-2">
-        <TextField
-          id={`location-${siteId}-latitude`}
-          label="Latitude"
-          type="number"
-          step="any"
-          value={latitude}
-          disabled={pending}
-          messages={fieldErrors.latitude}
-          onChange={(event) => {
-            setLatitude(event.target.value);
-          }}
-        />
-        <TextField
-          id={`location-${siteId}-longitude`}
-          label="Longitude"
-          type="number"
-          step="any"
-          value={longitude}
-          disabled={pending}
-          messages={fieldErrors.longitude}
-          onChange={(event) => {
-            setLongitude(event.target.value);
-          }}
-        />
-      </div>
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={pending} className={primaryButtonClassName}>
           {pending ? "Saving…" : "Add location"}
@@ -782,31 +735,7 @@ function createLocationPayload(draft: {
   description: string;
   department: string;
   uprn: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-}):
-  | { body: Record<string, string | number | null> }
-  | { error: ApiRequestError } {
-  const lat = readOptionalCoordinate(draft.latitude, -90, 90);
-  const lng = readOptionalCoordinate(draft.longitude, -180, 180);
-
-  if (lat === false) {
-    return {
-      error: new ApiRequestError(400, "Invalid request", {
-        latitude: ["Enter a latitude between -90 and 90."],
-      }),
-    };
-  }
-
-  if (lng === false) {
-    return {
-      error: new ApiRequestError(400, "Invalid request", {
-        longitude: ["Enter a longitude between -180 and 180."],
-      }),
-    };
-  }
-
+}): { body: Record<string, string | number | null> } {
   return {
     body: {
       name: emptyToNull(draft.name),
@@ -817,31 +746,8 @@ function createLocationPayload(draft: {
       description: emptyToNull(draft.description),
       department: emptyToNull(draft.department),
       uprn: emptyToNull(draft.uprn),
-      address: emptyToNull(draft.address),
-      latitude: lat,
-      longitude: lng,
     },
   };
-}
-
-function readOptionalCoordinate(
-  value: string,
-  min: number,
-  max: number,
-): number | null | false {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const number = Number(trimmed);
-
-  if (!Number.isFinite(number) || number < min || number > max) {
-    return false;
-  }
-
-  return number;
 }
 
 function emptyToNull(value: string): string | null {

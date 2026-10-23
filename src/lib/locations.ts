@@ -260,6 +260,41 @@ export function allowedChildTypes(
   return [];
 }
 
+/** Locations that can be reparented under `parent` (same site, type rules, no cycles). */
+export function filterChildLocationCandidates(
+  locations: Location[],
+  parent: Pick<Location, "id" | "siteId" | "locationType">,
+): Location[] {
+  const allowed = new Set(allowedChildTypes(parent.locationType));
+
+  if (allowed.size === 0) {
+    return [];
+  }
+
+  const excluded = descendantIds(locations, parent.id);
+  excluded.add(parent.id);
+
+  return locations.filter((location) => {
+    if (excluded.has(location.id)) {
+      return false;
+    }
+
+    if (location.siteId !== parent.siteId) {
+      return false;
+    }
+
+    if (location.parentLocationId === parent.id) {
+      return false;
+    }
+
+    if (location.locationType == null || !allowed.has(location.locationType)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export function filterParentCandidates(
   locations: Location[],
   options: {

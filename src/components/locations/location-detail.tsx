@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AssetForm } from "@/components/assets/asset-form";
@@ -32,8 +32,10 @@ import {
   LOCATION_STATUSES,
   LOCATION_TYPES,
   allowedChildTypes,
+  filterChildLocationCandidates,
   locationLabel,
   locationPath,
+  locationPathLabel,
   locationStatusLabel,
   locationTypeLabel,
   parentAllowsRoot,
@@ -47,6 +49,7 @@ import {
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 import {
   includeAsset,
+  parseAssetBody,
   parseAssetList,
   parseSiteSummary,
   type AssetList,
@@ -312,87 +315,26 @@ export function LocationDetail({ id }: { id: string }) {
             />
           </LocationSection>
 
-          <LocationSection title="Address">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <InlineText
-                  label="Address"
-                  field="address"
-                  value={location.address ?? ""}
-                  editable={canEdit}
-                  onSave={async (address) => {
-                    await saveLocation({ address: address || null });
-                  }}
-                />
-              </div>
-              <InlineText
-                label="Latitude"
-                field="latitude"
-                type="number"
-                value={location.latitude == null ? "" : String(location.latitude)}
-                editable={canEdit}
-                onSave={async (raw) => {
-                  if (!raw) {
-                    await saveLocation({ latitude: null });
-                    return;
-                  }
-
-                  const latitude = Number(raw);
-
-                  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-                    throw new ApiRequestError(400, "Invalid request", {
-                      latitude: ["Enter a latitude between -90 and 90."],
-                    });
-                  }
-
-                  await saveLocation({ latitude });
-                }}
-              />
-              <InlineText
-                label="Longitude"
-                field="longitude"
-                type="number"
-                value={location.longitude == null ? "" : String(location.longitude)}
-                editable={canEdit}
-                onSave={async (raw) => {
-                  if (!raw) {
-                    await saveLocation({ longitude: null });
-                    return;
-                  }
-
-                  const longitude = Number(raw);
-
-                  if (
-                    !Number.isFinite(longitude) ||
-                    longitude < -180 ||
-                    longitude > 180
-                  ) {
-                    throw new ApiRequestError(400, "Invalid request", {
-                      longitude: ["Enter a longitude between -180 and 180."],
-                    });
-                  }
-
-                  await saveLocation({ longitude });
-                }}
-              />
-            </div>
-          </LocationSection>
-
           <ChildLocationsSection
             parent={location}
+            locations={siteLocations}
             childLocations={children}
             canEdit={canEdit}
-            onCreated={reloadSiteLocations}
+            onChanged={reloadSiteLocations}
             onMissing={() => {
               router.replace("/sites");
             }}
           />
 
           <LocationAssetsSection
+            siteId={location.siteId}
             locationId={location.id}
             assets={assets}
             locations={siteLocations}
             canEdit={canEdit}
+            onChanged={() => {
+              void reloadAssets();
+            }}
             onCreated={(asset) => {
               void reloadAssets(asset);
             }}
@@ -560,43 +502,167 @@ function SectionAddButton({
   );
 }
 
+function SectionAddActions({
+  canAdd,
+  creating,
+  linking,
+  onToggleCreate,
+  onToggleLink,
+}: {
+  canAdd: boolean;
+  creating: boolean;
+  linking: boolean;
+  onToggleCreate: () => void;
+  onToggleLink: () => void;
+}) {
+  if (!canAdd) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <SectionAddButton label="Add" active={creating} onClick={onToggleCreate} />
+      <SectionAddButton
+        label="Add existing"
+        active={linking}
+        onClick={onToggleLink}
+      />
+    </div>
+  );
+}
+
 function ChildLocationsSection({
   parent,
+  locations,
   childLocations,
   canEdit,
-  onCreated,
+  onChanged,
   onMissing,
 }: {
   parent: Location;
+  locations: Location[];
   childLocations: Location[];
   canEdit: boolean;
-  onCreated: () => Promise<void>;
+  onChanged: () => Promise<void>;
   onMissing: () => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const childTypes = allowedChildTypes(parent.locationType);
   const canAdd = canEdit && childTypes.length > 0;
+  const candidates = filterChildLocationCandidates(locations, parent);
+  const matches = filterByQuery(
+    candidates,
+    query,
+    (location) =>
+      `${locationLabel(location)} ${location.locationCode ?? ""} ${locationTypeLabel(location.locationType)}`,
+  );
 
-  const addButton = canAdd ? (
-    <SectionAddButton
-      label="Add"
-      active={adding}
-      onClick={() => {
-        setAdding((current) => !current);
+  function closeLink() {
+    setLinking(false);
+    setQuery("");
+    setHighlight(0);
+    setLinkError(null);
+  }
+
+  async function attachChild(childId: string) {
+    if (!childId || pending) {
+      return;
+    }
+
+    setPending(true);
+    setLinkError(null);
+
+    try {
+      parseLocationBody(
+        await apiRequest(`/api/locations/${childId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ parentLocationId: parent.id }),
+        }),
+      );
+      await onChanged();
+      closeLink();
+    } catch (caught) {
+      setLinkError(asApiError(caught).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const actions = (
+    <SectionAddActions
+      canAdd={canAdd}
+      creating={creating}
+      linking={linking}
+      onToggleCreate={() => {
+        closeLink();
+        setCreating((current) => !current);
+      }}
+      onToggleLink={() => {
+        setCreating(false);
+        if (linking) {
+          closeLink();
+          return;
+        }
+
+        setLinkError(null);
+        setLinking(true);
       }}
     />
-  ) : null;
+  );
 
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Child locations</h2>
-        {childLocations.length > 0 || adding ? addButton : null}
+        {childLocations.length > 0 || creating || linking ? actions : null}
       </div>
       <div className="mt-3">
-        {childLocations.length === 0 && !adding ? (
+        {linking ? (
+          <ExistingPicker
+            id={`location-${parent.id}-add-child`}
+            query={query}
+            onQueryChange={(value) => {
+              setQuery(value);
+              setHighlight(0);
+            }}
+            highlight={highlight}
+            onHighlightChange={setHighlight}
+            matches={matches}
+            loading={false}
+            pending={pending}
+            error={linkError}
+            placeholder="Search for a location"
+            ariaLabel="Search for a location to nest under this one"
+            listLabel="Matching locations"
+            emptyLabel="No locations available to link."
+            noMatchLabel="No locations match."
+            onClose={closeLink}
+            onSelect={(item) => {
+              void attachChild(item.id);
+            }}
+            renderRow={(location) => (
+              <>
+                <span className="shrink-0 text-sm font-medium text-brand-500">
+                  {locationLabel(location)}
+                </span>
+                <span className="min-w-0 truncate text-sm text-gray-700">
+                  {locationTypeLabel(location.locationType)}
+                  {location.locationCode ? ` · ${location.locationCode}` : ""}
+                  {" · "}
+                  {locationPathLabel(locations, location.id)}
+                </span>
+              </>
+            )}
+          />
+        ) : null}
+        {childLocations.length === 0 && !creating && !linking ? (
           canAdd ? (
-            addButton
+            actions
           ) : parent.locationType == null ? (
             <p className="text-sm text-gray-500">
               Set a type before adding child locations.
@@ -624,11 +690,11 @@ function ChildLocationsSection({
             ))}
           </ul>
         ) : null}
-        {adding ? (
+        {creating ? (
           <Modal
             title="Add child location"
             onClose={() => {
-              setAdding(false);
+              setCreating(false);
             }}
           >
             <ChildLocationForm
@@ -636,11 +702,11 @@ function ChildLocationsSection({
               parentLocationId={parent.id}
               childTypes={childTypes}
               onCancel={() => {
-                setAdding(false);
+                setCreating(false);
               }}
               onCreated={async () => {
-                setAdding(false);
-                await onCreated();
+                setCreating(false);
+                await onChanged();
               }}
               onMissing={onMissing}
             />
@@ -652,60 +718,163 @@ function ChildLocationsSection({
 }
 
 function LocationAssetsSection({
+  siteId,
   locationId,
   assets,
   locations,
   canEdit,
+  onChanged,
   onCreated,
 }: {
+  siteId: string;
   locationId: string;
   assets: AssetList;
   locations: Location[];
   canEdit: boolean;
+  onChanged: () => void;
   onCreated: (asset: AssetList["assets"][number]) => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const siteAssetsRequest = useApi(
+    canEdit ? `/api/sites/${siteId}/assets` : null,
+    parseAssetList,
+  );
+  const atLocation = new Set(assets.assets.map((asset) => asset.id));
+  const candidates = (siteAssetsRequest.data?.assets ?? []).filter(
+    (asset) => !atLocation.has(asset.id),
+  );
+  const matches = filterByQuery(
+    candidates,
+    query,
+    (asset) => `${asset.tag} ${asset.assetName ?? ""}`,
+  );
 
-  const addButton = canEdit ? (
-    <SectionAddButton
-      label="Add"
-      active={adding}
-      onClick={() => {
-        setAdding((current) => !current);
+  function closeLink() {
+    setLinking(false);
+    setQuery("");
+    setHighlight(0);
+    setLinkError(null);
+  }
+
+  async function attachAsset(assetId: string) {
+    if (!assetId || pending) {
+      return;
+    }
+
+    setPending(true);
+    setLinkError(null);
+
+    try {
+      parseAssetBody(
+        await apiRequest(`/api/assets/${assetId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ locationId }),
+        }),
+      );
+      onChanged();
+      closeLink();
+    } catch (caught) {
+      setLinkError(asApiError(caught).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const actions = (
+    <SectionAddActions
+      canAdd={canEdit}
+      creating={creating}
+      linking={linking}
+      onToggleCreate={() => {
+        closeLink();
+        setCreating((current) => !current);
+      }}
+      onToggleLink={() => {
+        setCreating(false);
+        if (linking) {
+          closeLink();
+          return;
+        }
+
+        setLinkError(null);
+        setLinking(true);
       }}
     />
-  ) : null;
+  );
 
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Assets</h2>
-        {assets.assets.length > 0 || adding ? addButton : null}
+        {assets.assets.length > 0 || creating || linking ? actions : null}
       </div>
       <div className="mt-3">
-        {assets.assets.length === 0 && !adding ? (
+        {linking ? (
+          <ExistingPicker
+            id={`location-${locationId}-add-asset`}
+            query={query}
+            onQueryChange={(value) => {
+              setQuery(value);
+              setHighlight(0);
+            }}
+            highlight={highlight}
+            onHighlightChange={setHighlight}
+            matches={matches}
+            loading={siteAssetsRequest.loading && !siteAssetsRequest.data}
+            pending={pending}
+            error={linkError}
+            placeholder="Search for an asset"
+            ariaLabel="Search for an asset to move to this location"
+            listLabel="Matching assets"
+            emptyLabel="No assets available to link."
+            noMatchLabel="No assets match."
+            onClose={closeLink}
+            onSelect={(item) => {
+              void attachAsset(item.id);
+            }}
+            renderRow={(asset) => (
+              <>
+                <span className="shrink-0 text-sm font-medium text-brand-500">
+                  {asset.tag}
+                </span>
+                <span className="min-w-0 truncate text-sm text-gray-700">
+                  {asset.assetName ?? "—"}
+                  {asset.location.id !== locationId
+                    ? ` · ${asset.location.name ?? asset.location.locationCode ?? "Location"}`
+                    : ""}
+                </span>
+              </>
+            )}
+          />
+        ) : null}
+        {assets.assets.length === 0 && !creating && !linking ? (
           canEdit ? (
-            addButton
+            actions
           ) : (
             <p className="text-sm text-gray-500">No assets yet.</p>
           )
         ) : assets.assets.length > 0 ? (
           <AssetTable assets={assets.assets} locations={locations} />
         ) : null}
-        {adding ? (
+        {creating ? (
           <Modal
             title="Add asset"
             onClose={() => {
-              setAdding(false);
+              setCreating(false);
             }}
           >
             <AssetForm
               locationId={locationId}
               onCancel={() => {
-                setAdding(false);
+                setCreating(false);
               }}
               onCreated={(asset) => {
-                setAdding(false);
+                setCreating(false);
                 onCreated(asset);
               }}
             />
@@ -714,6 +883,187 @@ function LocationAssetsSection({
       </div>
     </section>
   );
+}
+
+function ExistingPicker<T extends { id: string }>({
+  id,
+  query,
+  onQueryChange,
+  highlight,
+  onHighlightChange,
+  matches,
+  loading,
+  pending,
+  error,
+  placeholder,
+  ariaLabel,
+  listLabel,
+  emptyLabel,
+  noMatchLabel,
+  onClose,
+  onSelect,
+  renderRow,
+}: {
+  id: string;
+  query: string;
+  onQueryChange: (value: string) => void;
+  highlight: number;
+  onHighlightChange: (value: number) => void;
+  matches: T[];
+  loading: boolean;
+  pending: boolean;
+  error: string | null;
+  placeholder: string;
+  ariaLabel: string;
+  listLabel: string;
+  emptyLabel: string;
+  noMatchLabel: string;
+  onClose: () => void;
+  onSelect: (item: T) => void;
+  renderRow: (item: T) => React.ReactNode;
+}) {
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <div className="relative">
+        <ExistingSearchIcon />
+        <input
+          ref={searchRef}
+          id={id}
+          type="search"
+          value={query}
+          disabled={pending || loading}
+          placeholder={placeholder}
+          autoComplete="off"
+          aria-label={ariaLabel}
+          aria-controls={`${id}-results`}
+          aria-expanded
+          role="combobox"
+          aria-autocomplete="list"
+          onChange={(event) => {
+            onQueryChange(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              onHighlightChange(
+                matches.length === 0 ? 0 : (highlight + 1) % matches.length,
+              );
+              return;
+            }
+
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              onHighlightChange(
+                matches.length === 0
+                  ? 0
+                  : (highlight - 1 + matches.length) % matches.length,
+              );
+              return;
+            }
+
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const match = matches[highlight];
+
+              if (match) {
+                onSelect(match);
+              }
+
+              return;
+            }
+
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onClose();
+            }
+          }}
+          className={`${inputClassName} mt-0 h-9 bg-white pl-9`}
+        />
+      </div>
+      <ul
+        id={`${id}-results`}
+        role="listbox"
+        aria-label={listLabel}
+        className="mt-2 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white"
+      >
+        {loading ? (
+          <li className="px-3 py-2 text-sm text-gray-500">Loading…</li>
+        ) : matches.length === 0 ? (
+          <li className="px-3 py-2 text-sm text-gray-500">
+            {query.trim() ? noMatchLabel : emptyLabel}
+          </li>
+        ) : (
+          matches.map((item, index) => {
+            const active = index === highlight;
+
+            return (
+              <li key={item.id} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onMouseEnter={() => {
+                    onHighlightChange(index);
+                  }}
+                  onClick={() => {
+                    onSelect(item);
+                  }}
+                  className={`flex w-full items-baseline gap-2 px-3 py-2 text-left ${
+                    active ? "bg-brand-50" : "hover:bg-gray-50"
+                  }`}
+                >
+                  {renderRow(item)}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+      {error ? (
+        <p className="mt-2 text-sm text-error-500" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ExistingSearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="7" cy="7" r="4.25" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M10.5 10.5 13 13"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function filterByQuery<T>(
+  items: T[],
+  query: string,
+  haystack: (item: T) => string,
+): T[] {
+  const needle = query.trim().toLowerCase();
+
+  if (!needle) {
+    return items;
+  }
+
+  return items.filter((item) => haystack(item).toLowerCase().includes(needle));
 }
 
 function ChildLocationForm({
