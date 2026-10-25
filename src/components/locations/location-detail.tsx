@@ -9,7 +9,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
 import {
   Badge,
-  ConfirmDelete,
   FieldMessages,
   FormBanner,
   TextField,
@@ -27,6 +26,7 @@ import {
 import { LocationPicker } from "@/components/locations/location-picker";
 import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
+import { StatusToolbar } from "@/components/status-toolbar";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import {
   LOCATION_STATUSES,
@@ -88,6 +88,7 @@ export function LocationDetail({ id }: { id: string }) {
   const [assetsForLocation, setAssetsForLocation] = useState(id);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const missing = locationRequest.error?.status === 404;
   const assetsMissing = assetsRequest.error?.status === 404;
   const forbidden = locationRequest.error?.status === 403 ? locationRequest.error : null;
@@ -149,6 +150,7 @@ export function LocationDetail({ id }: { id: string }) {
     setSavedAssets(null);
     setSavedSiteLocations(null);
     setDeleteError(null);
+    setConfirmingDelete(false);
   }
 
   const location =
@@ -244,6 +246,7 @@ export function LocationDetail({ id }: { id: string }) {
         setDeleteError(apiError.message);
       }
 
+      setConfirmingDelete(false);
       setDeleting(false);
     }
   }
@@ -301,6 +304,33 @@ export function LocationDetail({ id }: { id: string }) {
                 }}
               />
             </div>
+            <div className="mt-4 lg:hidden">
+              <StatusToolbar
+                value={location.status}
+                editable={canEdit}
+                options={LOCATION_STATUSES.map((status) => ({
+                  value: status,
+                  label: locationStatusLabel(status),
+                }))}
+                onChange={async (status) => {
+                  await saveLocation({ status: status as LocationStatus });
+                }}
+                menuItems={
+                  canEdit
+                    ? [
+                        {
+                          label: "Delete location",
+                          tone: "danger",
+                          onSelect: () => {
+                            setDeleteError(null);
+                            setConfirmingDelete(true);
+                          },
+                        },
+                      ]
+                    : []
+                }
+              />
+            </div>
           </section>
 
           <LocationSection title="Description">
@@ -340,41 +370,78 @@ export function LocationDetail({ id }: { id: string }) {
             }}
           />
 
-          {canEdit ? (
-            <div className="grid gap-3">
-              {deleteError ? (
-                <p className="text-sm leading-6 text-ink" role="alert">
-                  {deleteError}
-                </p>
-              ) : null}
-              <ConfirmDelete
-                label="Delete location"
-                question="Delete this location?"
-                pending={deleting}
-                onConfirm={() => {
-                  void remove();
-                }}
-              />
-            </div>
+          {deleteError ? (
+            <p className="text-sm leading-6 text-ink" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          {confirmingDelete ? (
+            <Modal
+              title="Delete location"
+              onClose={() => {
+                if (!deleting) {
+                  setConfirmingDelete(false);
+                }
+              }}
+            >
+              <p className="text-sm leading-6 text-gray-700">Delete this location?</p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className={primaryButtonClassName}
+                  disabled={deleting}
+                  onClick={() => {
+                    void remove();
+                  }}
+                >
+                  {deleting ? "Deleting…" : "Delete location"}
+                </button>
+                <button
+                  type="button"
+                  className={secondaryButtonClassName}
+                  disabled={deleting}
+                  onClick={() => {
+                    setConfirmingDelete(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Modal>
           ) : null}
         </div>
 
-        <aside className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
-          <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-          <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
-            <InlineSelect
-              label="Status"
-              field="status"
+        <aside className="min-w-0 overflow-visible lg:sticky lg:top-24">
+          <div className="hidden lg:block">
+            <StatusToolbar
               value={location.status}
               editable={canEdit}
               options={LOCATION_STATUSES.map((status) => ({
                 value: status,
                 label: locationStatusLabel(status),
               }))}
-              onSave={async (status) => {
+              onChange={async (status) => {
                 await saveLocation({ status: status as LocationStatus });
               }}
+              menuItems={
+                canEdit
+                  ? [
+                      {
+                        label: "Delete location",
+                        tone: "danger",
+                        onSelect: () => {
+                          setDeleteError(null);
+                          setConfirmingDelete(true);
+                        },
+                      },
+                    ]
+                  : []
+              }
             />
+          </div>
+          <div className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:mt-4">
+            <h2 className="text-sm font-semibold text-gray-800">Details</h2>
+            <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
             <InlineSelect
               label="Type"
               field="locationType"
@@ -445,6 +512,7 @@ export function LocationDetail({ id }: { id: string }) {
               </Link>
             </Property>
           </dl>
+          </div>
         </aside>
       </div>
     </div>

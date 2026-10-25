@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type PickerType = {
   id: string;
@@ -45,6 +46,7 @@ export function AssetTypePicker({
 }) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -52,9 +54,11 @@ export function AssetTypePicker({
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [highlightQuery, setHighlightQuery] = useState("");
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties | null>(null);
   const selected = types.find((assetType) => assetType.id === value) ?? null;
   const matches = pickerRows(types, query, clearLabel);
   const showingClear = !selected && !loading && Boolean(clearLabel);
+  const canPortal = typeof document !== "undefined";
 
   if (query !== highlightQuery) {
     setHighlightQuery(query);
@@ -69,16 +73,74 @@ export function AssetTypePicker({
     searchRef.current?.focus();
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function updatePosition() {
+      const button = buttonRef.current;
+
+      if (!button) {
+        return;
+      }
+
+      const rect = button.getBoundingClientRect();
+      const gutter = 8;
+      const maxWidth = Math.min(28 * 16, window.innerWidth - gutter * 2);
+      const width = Math.min(Math.max(rect.width, 16 * 16), maxWidth);
+      let left = rect.right - width;
+
+      if (left < gutter) {
+        left = gutter;
+      }
+
+      if (left + width > window.innerWidth - gutter) {
+        left = window.innerWidth - gutter - width;
+      }
+
+      const spaceBelow = window.innerHeight - rect.bottom - gutter;
+      const spaceAbove = rect.top - gutter;
+      const preferBelow = spaceBelow >= 16 * 16 || spaceBelow >= spaceAbove;
+      const maxHeight = Math.min(20 * 16, preferBelow ? spaceBelow : spaceAbove);
+
+      setMenuStyle({
+        position: "fixed",
+        left,
+        width,
+        maxHeight: maxHeight > 0 ? maxHeight : undefined,
+        zIndex: 80,
+        ...(preferBelow
+          ? { top: rect.bottom + 6 }
+          : { bottom: window.innerHeight - rect.top + 6 }),
+      });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, matches.length]);
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
     function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-        setQuery("");
+      const target = event.target as Node;
+
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) {
+        return;
       }
+
+      setOpen(false);
+      setQuery("");
+      setMenuStyle(null);
     }
 
     document.addEventListener("mousedown", onPointerDown);
@@ -98,6 +160,7 @@ export function AssetTypePicker({
   function close(focusButton: boolean, dismiss = true) {
     setOpen(false);
     setQuery("");
+    setMenuStyle(null);
 
     if (dismiss) {
       onDismiss?.();
@@ -203,93 +266,100 @@ export function AssetTypePicker({
         )}
         <Chevron />
       </button>
-      {open ? (
-        <div className="absolute top-full right-0 z-40 mt-1.5 w-max min-w-full max-w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs">
-          <div className="relative">
-            <SearchIcon />
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              role="combobox"
-              aria-expanded={open}
-              aria-controls={listId}
-              aria-activedescendant={activeId}
-              aria-autocomplete="list"
-              aria-label={`Search ${listLabel.toLowerCase()}`}
-              placeholder={searchPlaceholder}
-              autoComplete="off"
-              onChange={(event) => {
-                setQuery(event.target.value);
-              }}
-              onKeyDown={onSearchKeyDown}
-              className="h-9 w-full rounded-lg border border-gray-300 bg-transparent pr-3 pl-9 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden"
-            />
-          </div>
-          <ul
-            id={listId}
-            role="listbox"
-            aria-label={listLabel}
-            className="mt-2 max-h-60 overflow-y-auto"
-          >
-            {matches.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-gray-500">
-                {types.length === 0
-                  ? `No ${listLabel.toLowerCase()} yet.`
-                  : `No ${listLabel.toLowerCase()} match.`}
-              </li>
-            ) : (
-              matches.map((assetType, index) => {
-                const isSelected = assetType.clear ? value === "" : assetType.id === value;
-                const isActive = index === highlight;
-
-                return (
-                  <li key={assetType.clear ? "clear" : assetType.id}>
-                    <button
-                      ref={(node) => {
-                        optionRefs.current[index] = node;
-                      }}
-                      id={`${listId}-${assetType.clear ? "clear" : assetType.id}`}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onMouseEnter={() => {
-                        setHighlight(index);
-                      }}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                      }}
-                      onClick={() => {
-                        choose(assetType.id);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
-                        isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      {assetType.clear ? (
-                        <TypeMark empty />
-                      ) : (
-                        <TypeMark label={initials(assetType.name)} />
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium whitespace-normal text-gray-800">
-                          {assetType.name}
-                        </span>
-                        {showCode && !assetType.clear ? (
-                          <span className="block text-xs whitespace-normal text-gray-500">
-                            {assetType.code}
-                          </span>
-                        ) : null}
-                      </span>
-                      {isSelected ? <CheckIcon /> : null}
-                    </button>
+      {open && canPortal && menuStyle
+        ? createPortal(
+            <div
+              ref={panelRef}
+              style={menuStyle}
+              className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs"
+            >
+              <div className="relative shrink-0">
+                <SearchIcon />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  role="combobox"
+                  aria-expanded={open}
+                  aria-controls={listId}
+                  aria-activedescendant={activeId}
+                  aria-autocomplete="list"
+                  aria-label={`Search ${listLabel.toLowerCase()}`}
+                  placeholder={searchPlaceholder}
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                  }}
+                  onKeyDown={onSearchKeyDown}
+                  className="h-9 w-full rounded-lg border border-gray-300 bg-transparent pr-3 pl-9 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden"
+                />
+              </div>
+              <ul
+                id={listId}
+                role="listbox"
+                aria-label={listLabel}
+                className="mt-2 min-h-0 flex-1 overflow-y-auto"
+              >
+                {matches.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-gray-500">
+                    {types.length === 0
+                      ? `No ${listLabel.toLowerCase()} yet.`
+                      : `No ${listLabel.toLowerCase()} match.`}
                   </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
-      ) : null}
+                ) : (
+                  matches.map((assetType, index) => {
+                    const isSelected = assetType.clear ? value === "" : assetType.id === value;
+                    const isActive = index === highlight;
+
+                    return (
+                      <li key={assetType.clear ? "clear" : assetType.id}>
+                        <button
+                          ref={(node) => {
+                            optionRefs.current[index] = node;
+                          }}
+                          id={`${listId}-${assetType.clear ? "clear" : assetType.id}`}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onMouseEnter={() => {
+                            setHighlight(index);
+                          }}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                          }}
+                          onClick={() => {
+                            choose(assetType.id);
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
+                            isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {assetType.clear ? (
+                            <TypeMark empty />
+                          ) : (
+                            <TypeMark label={initials(assetType.name)} />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium whitespace-normal text-gray-800">
+                              {assetType.name}
+                            </span>
+                            {showCode && !assetType.clear ? (
+                              <span className="block text-xs whitespace-normal text-gray-500">
+                                {assetType.code}
+                              </span>
+                            ) : null}
+                          </span>
+                          {isSelected ? <CheckIcon /> : null}
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

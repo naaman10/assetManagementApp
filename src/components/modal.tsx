@@ -6,10 +6,12 @@ export function Modal({
   title,
   onClose,
   children,
+  size = "default",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  size?: "default" | "lg";
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
@@ -28,11 +30,16 @@ export function Modal({
     dialog.showModal();
   }, []);
 
+  const sizeClass =
+    size === "lg"
+      ? "h-[min(48rem,calc(100vh-2rem))] w-[min(48rem,calc(100vw-2rem))]"
+      : "h-fit max-h-[calc(100vh-2rem)] w-[min(42rem,calc(100vw-2rem))]";
+
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby="modal-title"
-      className="m-auto h-fit w-[min(42rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40"
+      className={`m-auto flex ${sizeClass} flex-col overflow-visible rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40`}
       onCancel={(event) => {
         event.preventDefault();
         onCloseRef.current();
@@ -43,7 +50,7 @@ export function Modal({
         }
       }}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex shrink-0 items-start justify-between gap-4">
         <h2 id="modal-title" className="text-lg font-semibold text-gray-800">
           {title}
         </h2>
@@ -58,7 +65,7 @@ export function Modal({
           ×
         </button>
       </div>
-      <div className="mt-6">{children}</div>
+      <div className="mt-6 min-h-0 flex-1 overflow-visible">{children}</div>
     </dialog>
   );
 }

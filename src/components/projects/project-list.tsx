@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import { CreateProject } from "@/components/projects/create-project";
 import { ProjectTable } from "@/components/projects/project-table";
 import { PageHeading, primaryButtonClassName } from "@/components/form-controls";
+import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
 import { asApiError, useApi } from "@/lib/api-client";
 import { parseProjectList } from "@/lib/projects";
@@ -12,6 +14,7 @@ export function ProjectList() {
   const { user } = useSession();
   const canCreate = hasPermission(user, CLIENTS_VIEW);
   const request = useApi("/api/projects", parseProjectList);
+  const [creating, setCreating] = useState(false);
   const projects = request.data?.projects;
 
   return (
@@ -20,9 +23,15 @@ export function ProjectList() {
         title="Projects"
         action={
           canCreate ? (
-            <Link href="/projects/new" className={primaryButtonClassName}>
+            <button
+              type="button"
+              className={primaryButtonClassName}
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
               New project
-            </Link>
+            </button>
           ) : null
         }
       />
@@ -38,6 +47,22 @@ export function ProjectList() {
         ) : (
           <ProjectTable projects={projects} includeClient />
         )
+      ) : null}
+      {creating ? (
+        <Modal
+          title="New project"
+          size="lg"
+          onClose={() => {
+            setCreating(false);
+          }}
+        >
+          <CreateProject
+            embedded
+            onCancel={() => {
+              setCreating(false);
+            }}
+          />
+        </Modal>
       ) : null}
     </section>
   );

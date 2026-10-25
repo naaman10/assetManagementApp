@@ -18,11 +18,11 @@ import {
   inputClassName,
 } from "@/components/form-controls";
 import {
-  InlineSelect,
   InlineText,
   InlineTitle,
   Property,
 } from "@/components/inline-field";
+import { StatusToolbar } from "@/components/status-toolbar";
 import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
@@ -399,6 +399,19 @@ function AssetDetailContent({ id }: { id: string }) {
                 }}
               />
             </div>
+            <div className="mt-4 lg:hidden">
+              <StatusToolbar
+                value={asset.status}
+                editable={canEdit}
+                options={ASSET_STATUSES.map((status) => ({
+                  value: status,
+                  label: assetStatusLabel(status),
+                }))}
+                onChange={async (status) => {
+                  await saveAsset({ status: status as AssetStatus });
+                }}
+              />
+            </div>
           </section>
 
           <AssetSection title="Manufacturer">
@@ -636,22 +649,23 @@ function AssetDetailContent({ id }: { id: string }) {
           </section>
         </div>
 
-        <aside className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:sticky lg:top-24">
-          <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-          <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
-            <InlineSelect
-              label="Status"
-              field="status"
+        <aside className="min-w-0 overflow-visible lg:sticky lg:top-24">
+          <div className="hidden lg:block">
+            <StatusToolbar
               value={asset.status}
               editable={canEdit}
               options={ASSET_STATUSES.map((status) => ({
                 value: status,
                 label: assetStatusLabel(status),
               }))}
-              onSave={async (status) => {
+              onChange={async (status) => {
                 await saveAsset({ status: status as AssetStatus });
               }}
             />
+          </div>
+          <div className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card lg:mt-4">
+            <h2 className="text-sm font-semibold text-gray-800">Details</h2>
+            <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
             <AssetTypeField
               asset={asset}
               editable={canEdit && canPickTypes}
@@ -703,6 +717,7 @@ function AssetDetailContent({ id }: { id: string }) {
               />
             </Property>
           </dl>
+          </div>
         </aside>
       </div>
     </div>
