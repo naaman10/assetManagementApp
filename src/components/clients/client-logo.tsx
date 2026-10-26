@@ -11,7 +11,7 @@ export function ClientLogo({
 }: {
   name: string;
   logoUrl: string | null;
-  size: "list" | "detail";
+  size: "list" | "detail" | "card";
   onReload?: () => Promise<string | null>;
 }) {
   const source = safeLogoUrl(logoUrl);
@@ -20,6 +20,15 @@ export function ClientLogo({
   if (!source || brokenUrl === source) {
     if (size === "detail") {
       return null;
+    }
+
+    if (size === "card") {
+      return (
+        <LogoPlaceholder
+          name={name}
+          className="aspect-[16/10] w-full rounded-none text-lg"
+        />
+      );
     }
 
     return <LogoPlaceholder name={name} className="size-12 rounded-2xl" />;
@@ -32,9 +41,11 @@ export function ClientLogo({
       src={source}
       alt=""
       className={
-        size === "detail"
-          ? "h-auto max-h-24 w-auto max-w-full"
-          : "size-12 shrink-0 rounded-2xl bg-surface-warm object-cover"
+        size === "card"
+          ? "aspect-[16/10] w-full bg-surface-warm object-contain"
+          : size === "detail"
+            ? "h-auto max-h-24 w-auto max-w-full"
+            : "size-12 shrink-0 rounded-2xl bg-surface-warm object-cover"
       }
       onError={() => {
         if (!onReload || retries.current >= 1) {
