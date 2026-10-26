@@ -22,16 +22,19 @@ export function StatusToolbar({
   editable,
   onChange,
   menuItems = [],
+  highlightValues = ["active"],
 }: {
   value: string;
   options: readonly StatusOption[];
   editable: boolean;
   onChange: (value: string) => Promise<void>;
   menuItems?: StatusMenuItem[];
+  /** Status values that use the green lozenge tone. */
+  highlightValues?: readonly string[];
 }) {
   const selected = options.find((option) => option.value === value);
   const label = selected?.label ?? value;
-  const active = value === "active";
+  const active = highlightValues.includes(value);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -160,7 +163,7 @@ function StatusLozenge({
   if (!editable) {
     return (
       <span
-        className={`inline-flex items-center rounded-md px-2.5 py-1 text-sm font-medium ring-1 ring-inset ${toneClass}`}
+        className={`inline-flex h-8 items-center rounded-md px-2.5 text-sm font-medium ring-1 ring-inset ${toneClass}`}
       >
         {label}
       </span>
@@ -186,7 +189,7 @@ function StatusLozenge({
           setError(null);
           setOpen(true);
         }}
-        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium ring-1 ring-inset disabled:opacity-50 ${toneClass}`}
+        className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium ring-1 ring-inset disabled:opacity-50 ${toneClass}`}
       >
         {label}
         <Chevron />
