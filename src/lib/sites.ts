@@ -82,6 +82,18 @@ export type ParentAssetSummary = {
   assetName: string | null;
 };
 
+export type AssetProject = {
+  id: string;
+  title: string;
+  projectReference: string;
+  status: string;
+  projectType: {
+    id: string;
+    code: string;
+    name: string;
+  };
+};
+
 export type Asset = {
   id: string;
   tag: string;
@@ -100,6 +112,7 @@ export type Asset = {
   model: string | null;
   serialNumber: string | null;
   yearOfManufacture: number | null;
+  projects: AssetProject[];
 };
 
 export function assetLabel(
@@ -241,7 +254,35 @@ function parseAsset(value: unknown): Asset {
     model: optionalString(record, "model"),
     serialNumber: optionalString(record, "serialNumber"),
     yearOfManufacture: optionalNumber(record, "yearOfManufacture"),
+    projects: parseAssetProjects(record.projects),
   };
+}
+
+function parseAssetProjects(value: unknown): AssetProject[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map((item) => {
+    const record = objectRecord(item, "project");
+    const projectType = objectRecord(record.projectType, "project type");
+
+    return {
+      id: requiredString(record, "id"),
+      title: requiredString(record, "title"),
+      projectReference: requiredString(record, "projectReference"),
+      status: requiredString(record, "status"),
+      projectType: {
+        id: requiredString(projectType, "id"),
+        code: requiredString(projectType, "code"),
+        name: requiredString(projectType, "name"),
+      },
+    };
+  });
 }
 
 function parseAssetNrm3(value: unknown): AssetNrm3Classification | null {

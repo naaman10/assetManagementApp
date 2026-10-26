@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
+import { AssetProjectsSection } from "@/components/assets/asset-projects";
 import { MaintenanceHistoryPanel } from "@/components/assets/maintenance-history";
 import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
 import { ParentAssetPicker } from "@/components/assets/parent-asset-picker";
@@ -523,6 +524,13 @@ function AssetDetailContent({ id }: { id: string }) {
             error={siteAssetsRequest.error?.message ?? null}
             canEdit={canEdit}
             onAdded={reloadSiteAssets}
+          />
+
+          <AssetProjectsSection
+            asset={asset}
+            siteAssets={siteAssets}
+            canEdit={canEdit}
+            onAsset={setSaved}
           />
 
           <section>
