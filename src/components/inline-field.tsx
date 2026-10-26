@@ -257,10 +257,12 @@ export function InlineSelect({
 export function InlineAddress({
   address,
   editable,
+  wide = true,
   onSave,
 }: {
   address: Address;
   editable: boolean;
+  wide?: boolean;
   onSave: (address: Record<string, string | null>) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -332,7 +334,7 @@ export function InlineAddress({
   }
 
   return (
-    <Property label="Address" wide>
+    <Property label="Address" wide={wide}>
       <div className="relative" ref={panelRef}>
         {editable ? (
           <button

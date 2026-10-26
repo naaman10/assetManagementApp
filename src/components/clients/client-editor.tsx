@@ -432,10 +432,11 @@ export function ClientEditor({ id }: { id: string }) {
             </div>
             <div className="overflow-visible p-5">
             <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-            <dl className="mt-5 grid min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
+            <dl className="mt-5 grid grid-cols-1 min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
               <InlineAddress
                 address={client.address}
                 editable={canEdit}
+                wide={false}
                 onSave={async (address) => {
                   await saveClient({ address });
                 }}
