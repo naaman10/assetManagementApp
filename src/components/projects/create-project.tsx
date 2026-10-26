@@ -13,6 +13,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/form-controls";
+import { UserMultiPicker } from "@/components/projects/user-multi-picker";
 import { useSession } from "@/components/session-provider";
 import {
   ApiRequestError,
@@ -34,7 +35,7 @@ const STEPS = [
   { id: 1, label: "Client" },
   { id: 2, label: "Details" },
   { id: 3, label: "Due date" },
-  { id: 4, label: "Assignee" },
+  { id: 4, label: "Assignees" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -60,7 +61,7 @@ export function CreateProject({
     parseClientChoices,
   );
   const typesRequest = useApi(canPickTypes ? "/api/project-types" : null, parseProjectTypeList);
-  const leadsRequest = useApi(blocked ? null : "/api/clients/users", parseLeadUsers);
+  const usersRequest = useApi(blocked ? null : "/api/clients/users", parseLeadUsers);
   const [step, setStep] = useState<StepId>(1);
   const [selectedClientId, setSelectedClientId] = useState(fixedClientId);
   const activeClientId = fixedClientId || selectedClientId;
@@ -73,13 +74,15 @@ export function CreateProject({
   const [projectTypeId, setProjectTypeId] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leadUserId, setLeadUserId] = useState("");
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [pending, setPending] = useState(false);
   const fieldErrors = error?.fieldErrors ?? {};
-  const hideAssignee = leadsRequest.error?.status === 403;
+  const hideUsers = usersRequest.error?.status === 403;
   const clientMissing = fixedClientRequest.error?.status === 404;
   const activeTypes = (typesRequest.data ?? []).filter((type) => type.isActive);
+  const users = usersRequest.data ?? [];
   const clientLabel = fixedClientId
     ? (fixedClientRequest.data?.name ??
       (fixedClientRequest.loading ? "Loading client…" : "Client"))
@@ -121,7 +124,7 @@ export function CreateProject({
       errors.dueDate = ["Choose a due date."];
     }
 
-    if (current === 4 && !hideAssignee && !leadUserId) {
+    if (current === 4 && !hideUsers && !leadUserId) {
       errors.leadUserId = ["Choose an assignee."];
     }
 
@@ -176,7 +179,8 @@ export function CreateProject({
               projectTypeId,
               description,
               dueDate,
-              leadUserId: hideAssignee ? "" : leadUserId,
+              memberIds: hideUsers ? [] : memberIds,
+              leadUserId: hideUsers ? "" : leadUserId,
             }),
           ),
         }),
@@ -347,45 +351,71 @@ export function CreateProject({
         ) : null}
 
         {step === 4 ? (
-          hideAssignee ? (
+          hideUsers ? (
             <p className="text-sm text-gray-500">
-              You do not have access to choose an assignee. You can still create the project.
+              You do not have access to choose assignees. You can still create the project.
             </p>
           ) : (
-            <div>
-              <label
-                id="project-assignee-label"
-                className="block text-sm font-medium text-gray-700"
-                htmlFor="project-assignee"
-              >
-                Assignee
-              </label>
-              <div className="mt-1.5">
-                <AssetTypePicker
-                  id="project-assignee"
-                  types={(leadsRequest.data ?? []).map((person) => ({
-                    id: person.id,
-                    name: person.name ?? person.email,
-                    code: "",
-                  }))}
-                  value={leadUserId}
-                  disabled={pending}
-                  loading={leadsRequest.loading}
-                  showCode={false}
-                  listLabel="Assignees"
-                  placeholder="Choose an assignee"
-                  searchPlaceholder="Search assignees"
-                  loadingLabel="Loading assignees…"
-                  onChange={setLeadUserId}
-                />
+            <>
+              <div>
+                <label
+                  id="project-assignee-label"
+                  className="block text-sm font-medium text-gray-700"
+                  htmlFor="project-assignee"
+                >
+                  Lead
+                </label>
+                <div className="mt-1.5">
+                  <AssetTypePicker
+                    id="project-assignee"
+                    types={users.map((person) => ({
+                      id: person.id,
+                      name: person.name ?? person.email,
+                      code: "",
+                    }))}
+                    value={leadUserId}
+                    disabled={pending}
+                    loading={usersRequest.loading}
+                    showCode={false}
+                    inlineMenu
+                    listLabel="Assignees"
+                    placeholder="Choose a lead"
+                    searchPlaceholder="Search people"
+                    loadingLabel="Loading people…"
+                    onChange={setLeadUserId}
+                  />
+                </div>
+                <FieldMessages messages={fieldErrors.leadUserId} />
               </div>
-              <FieldMessages messages={fieldErrors.leadUserId} />
-              {leadsRequest.error && leadsRequest.error.status !== 403 ? (
-                <p className="mt-1.5 text-sm text-error-500" role="alert">
-                  {leadsRequest.error.message}
+              <div>
+                <label
+                  id="project-members-label"
+                  className="block text-sm font-medium text-gray-700"
+                  htmlFor="project-members"
+                >
+                  Members
+                </label>
+                <p className="mt-1 text-sm text-gray-500">
+                  Optional. Choose people who will work on this project.
+                </p>
+                <div className="mt-1.5">
+                  <UserMultiPicker
+                    id="project-members"
+                    users={users}
+                    value={memberIds}
+                    disabled={pending}
+                    loading={usersRequest.loading}
+                    onChange={setMemberIds}
+                  />
+                </div>
+                <FieldMessages messages={fieldErrors.memberIds} />
+              </div>
+              {usersRequest.error && usersRequest.error.status !== 403 ? (
+                <p className="text-sm text-error-500" role="alert">
+                  {usersRequest.error.message}
                 </p>
               ) : null}
-            </div>
+            </>
           )
         ) : null}
 
@@ -485,6 +515,7 @@ function projectPayload(draft: {
   projectTypeId: string;
   description: string;
   dueDate: string;
+  memberIds: string[];
   leadUserId: string;
 }) {
   const payload: Record<string, string | string[]> = {
@@ -493,6 +524,7 @@ function projectPayload(draft: {
     projectTypeId: draft.projectTypeId,
     status: "scheduled",
     dueDate: draft.dueDate,
+    memberIds: draft.memberIds,
     assetIds: [],
   };
   const description = draft.description.trim();

@@ -21,6 +21,8 @@ export function AssetTypePicker({
   loading,
   startOpen = false,
   showCode = true,
+  /** Use in-tree absolute menu (needed inside native <dialog> modals). */
+  inlineMenu = false,
   listLabel = "Asset types",
   placeholder = "Choose a type",
   searchPlaceholder = "Search types",
@@ -36,6 +38,7 @@ export function AssetTypePicker({
   loading?: boolean;
   startOpen?: boolean;
   showCode?: boolean;
+  inlineMenu?: boolean;
   listLabel?: string;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -74,7 +77,7 @@ export function AssetTypePicker({
   }, [open]);
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!open || inlineMenu) {
       return;
     }
 
@@ -124,7 +127,7 @@ export function AssetTypePicker({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open, matches.length]);
+  }, [open, inlineMenu, matches.length]);
 
   useEffect(() => {
     if (!open) {
@@ -214,6 +217,102 @@ export function AssetTypePicker({
     ? `${listId}-${activeMatch.clear ? "clear" : activeMatch.id}`
     : undefined;
 
+  const menu = (
+    <div
+      ref={panelRef}
+      style={inlineMenu ? undefined : (menuStyle ?? undefined)}
+      className={`flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs ${
+        inlineMenu
+          ? "absolute top-full right-0 left-0 z-50 mt-1.5 max-h-64"
+          : ""
+      }`}
+    >
+      <div className="relative shrink-0">
+        <SearchIcon />
+        <input
+          ref={searchRef}
+          type="text"
+          value={query}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-activedescendant={activeId}
+          aria-autocomplete="list"
+          aria-label={`Search ${listLabel.toLowerCase()}`}
+          placeholder={searchPlaceholder}
+          autoComplete="off"
+          onChange={(event) => {
+            setQuery(event.target.value);
+          }}
+          onKeyDown={onSearchKeyDown}
+          className="h-9 w-full rounded-lg border border-gray-300 bg-transparent pr-3 pl-9 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden"
+        />
+      </div>
+      <ul
+        id={listId}
+        role="listbox"
+        aria-label={listLabel}
+        className="mt-2 min-h-0 flex-1 overflow-y-auto"
+      >
+        {matches.length === 0 ? (
+          <li className="px-3 py-2 text-sm text-gray-500">
+            {types.length === 0
+              ? `No ${listLabel.toLowerCase()} yet.`
+              : `No ${listLabel.toLowerCase()} match.`}
+          </li>
+        ) : (
+          matches.map((assetType, index) => {
+            const isSelected = assetType.clear ? value === "" : assetType.id === value;
+            const isActive = index === highlight;
+
+            return (
+              <li key={assetType.clear ? "clear" : assetType.id}>
+                <button
+                  ref={(node) => {
+                    optionRefs.current[index] = node;
+                  }}
+                  id={`${listId}-${assetType.clear ? "clear" : assetType.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => {
+                    setHighlight(index);
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => {
+                    choose(assetType.id);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
+                    isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
+                  }`}
+                >
+                  {assetType.clear ? (
+                    <TypeMark empty />
+                  ) : (
+                    <TypeMark label={initials(assetType.name)} />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium whitespace-normal text-gray-800">
+                      {assetType.name}
+                    </span>
+                    {showCode && !assetType.clear ? (
+                      <span className="block text-xs whitespace-normal text-gray-500">
+                        {assetType.code}
+                      </span>
+                    ) : null}
+                  </span>
+                  {isSelected ? <CheckIcon /> : null}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+
   return (
     <div ref={rootRef} className="relative mt-1.5 min-w-0 max-w-full">
       <button
@@ -266,100 +365,11 @@ export function AssetTypePicker({
         )}
         <Chevron />
       </button>
-      {open && canPortal && menuStyle
-        ? createPortal(
-            <div
-              ref={panelRef}
-              style={menuStyle}
-              className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white p-2 shadow-theme-xs"
-            >
-              <div className="relative shrink-0">
-                <SearchIcon />
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={query}
-                  role="combobox"
-                  aria-expanded={open}
-                  aria-controls={listId}
-                  aria-activedescendant={activeId}
-                  aria-autocomplete="list"
-                  aria-label={`Search ${listLabel.toLowerCase()}`}
-                  placeholder={searchPlaceholder}
-                  autoComplete="off"
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                  }}
-                  onKeyDown={onSearchKeyDown}
-                  className="h-9 w-full rounded-lg border border-gray-300 bg-transparent pr-3 pl-9 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/20 focus:outline-hidden"
-                />
-              </div>
-              <ul
-                id={listId}
-                role="listbox"
-                aria-label={listLabel}
-                className="mt-2 min-h-0 flex-1 overflow-y-auto"
-              >
-                {matches.length === 0 ? (
-                  <li className="px-3 py-2 text-sm text-gray-500">
-                    {types.length === 0
-                      ? `No ${listLabel.toLowerCase()} yet.`
-                      : `No ${listLabel.toLowerCase()} match.`}
-                  </li>
-                ) : (
-                  matches.map((assetType, index) => {
-                    const isSelected = assetType.clear ? value === "" : assetType.id === value;
-                    const isActive = index === highlight;
-
-                    return (
-                      <li key={assetType.clear ? "clear" : assetType.id}>
-                        <button
-                          ref={(node) => {
-                            optionRefs.current[index] = node;
-                          }}
-                          id={`${listId}-${assetType.clear ? "clear" : assetType.id}`}
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          onMouseEnter={() => {
-                            setHighlight(index);
-                          }}
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                          }}
-                          onClick={() => {
-                            choose(assetType.id);
-                          }}
-                          className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
-                            isSelected || isActive ? "bg-brand-50" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {assetType.clear ? (
-                            <TypeMark empty />
-                          ) : (
-                            <TypeMark label={initials(assetType.name)} />
-                          )}
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-medium whitespace-normal text-gray-800">
-                              {assetType.name}
-                            </span>
-                            {showCode && !assetType.clear ? (
-                              <span className="block text-xs whitespace-normal text-gray-500">
-                                {assetType.code}
-                              </span>
-                            ) : null}
-                          </span>
-                          {isSelected ? <CheckIcon /> : null}
-                        </button>
-                      </li>
-                    );
-                  })
-                )}
-              </ul>
-            </div>,
-            document.body,
-          )
-        : null}
+      {open && inlineMenu
+        ? menu
+        : open && !inlineMenu && canPortal && menuStyle
+          ? createPortal(menu, document.body)
+          : null}
     </div>
   );
 }

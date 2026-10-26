@@ -87,7 +87,7 @@
 }
 
 body {
-  background: var(--canvas);
+  background: var(--surface);
   color: var(--ink);
   font-family: var(--font-sans);
 }

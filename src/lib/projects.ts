@@ -37,6 +37,7 @@ export type Project = {
   startDate: string | null;
   dueDate: string | null;
   lead: ProjectUser | null;
+  members: ProjectUser[];
   client: ProjectClient;
   assets: ProjectAsset[];
 };
@@ -249,12 +250,25 @@ function parseProject(value: unknown): Project {
     startDate: optionalString(record, "startDate"),
     dueDate: optionalString(record, "dueDate"),
     lead: record.lead == null ? null : parseProjectUser(record.lead),
+    members: parseProjectUsers(record.members),
     client: {
       id: requiredString(client, "id"),
       name: requiredString(client, "name"),
     },
     assets: parseProjectAssets(record.assets),
   };
+}
+
+function parseProjectUsers(value: unknown): ProjectUser[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map(parseProjectUser);
 }
 
 function parseProjectAssets(value: unknown): ProjectAsset[] {

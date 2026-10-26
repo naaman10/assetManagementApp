@@ -97,28 +97,19 @@ export function MaintenanceSchedulePanel({
     return null;
   }
 
+  const creating = open === "create";
+
   return (
-    <section>
+    <section className="grid gap-3">
       {error ? (
-        <p className="mb-4 text-sm leading-6 text-ink" role="alert">
+        <p className="text-sm leading-6 text-ink" role="alert">
           {error}
         </p>
       ) : null}
-      {showAdd && !open ? (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className={secondaryButtonClassName}
-            onClick={() => {
-              setOpen("create");
-            }}
-          >
-            Add maintenance schedule
-          </button>
-        </div>
-      ) : null}
       {schedules.maintenanceSchedules.length === 0 ? (
-        <p className="text-sm text-gray-500">No maintenance schedules yet.</p>
+        !showAdd ? (
+          <p className="text-sm text-gray-500">No maintenance schedules yet.</p>
+        ) : null
       ) : (
         <DataTable columns={["Reference", "Name", "Type", "Frequency", "Next due", "Status"]}>
           {schedules.maintenanceSchedules.map((schedule) => (
@@ -149,6 +140,27 @@ export function MaintenanceSchedulePanel({
           ))}
         </DataTable>
       )}
+      {showAdd ? (
+        <div>
+          <button
+            type="button"
+            className={sectionAddButtonClassName}
+            onClick={() => {
+              if (creating) {
+                closeModal();
+                return;
+              }
+
+              setOpen("create");
+            }}
+          >
+            <span aria-hidden="true" className="text-base leading-none">
+              +
+            </span>
+            {creating ? "Cancel" : "Add"}
+          </button>
+        </div>
+      ) : null}
       {open ? (
         <Modal
           title={open === "create" ? "Add maintenance schedule" : open.name}
@@ -176,6 +188,9 @@ export function MaintenanceSchedulePanel({
     </section>
   );
 }
+
+const sectionAddButtonClassName =
+  "inline-flex items-center gap-1 text-sm font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50";
 
 function ScheduleForm({
   assetId,
