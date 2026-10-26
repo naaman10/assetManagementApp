@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import {
-  Choice,
-  ChoiceGroup,
+  FieldMessages,
   FormBanner,
   bannerMessage,
 } from "@/components/form-controls";
+import { UserMultiPicker } from "@/components/projects/user-multi-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import {
@@ -15,6 +15,7 @@ import {
   type SettingsUser,
 } from "@/lib/clients";
 import { parseUserList, sameIds, type User } from "@/lib/directory";
+import type { ProjectUser } from "@/lib/projects";
 import { USERS_VIEW, hasPermission } from "@/lib/session";
 
 export function ClientMembers({
@@ -52,8 +53,7 @@ export function ClientMembers({
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
-  const catalog = usersRequest.data;
-  const memberChoices = personChoices(catalog, client.settings.members);
+  const people = mergePeople(usersRequest.data, client.settings.members);
   const showUserAccessNote = canEdit && !canViewUsers;
   const usersProblem = usersRequest.error?.message ?? null;
 
@@ -126,38 +126,60 @@ export function ClientMembers({
     );
   }
 
-  if (canViewUsers && usersRequest.loading && !catalog) {
-    return <p className="text-sm text-muted">Loading users…</p>;
-  }
-
   return (
-    <section className="grid gap-4">
+    <section className="grid max-w-xl gap-4">
       <FormBanner message={bannerMessage(error?.message ?? null, fieldErrors)} />
-      <ChoiceGroup legend="Members" messages={fieldErrors.memberIds}>
-        <p className="text-sm leading-6 text-muted">
+      <div>
+        <label
+          id={`client-${client.id}-members-label`}
+          className="block text-sm font-medium text-gray-700"
+          htmlFor={`client-${client.id}-members`}
+        >
+          Members
+        </label>
+        <p className="mt-1 text-sm text-gray-500">
           Users who require access to the client.
         </p>
-        {memberIds.length === 0 ? (
-          <p className="text-sm text-muted">No members yet.</p>
-        ) : null}
-        {memberChoices.map((person) => (
-          <Choice
-            key={person.id}
-            title={userLabel(person)}
-            detail={person.name ? person.email : null}
-            checked={memberIds.includes(person.id)}
-            disabled={pending || usersRequest.loading}
-            onChange={(checked) => {
-              void saveMembers(
-                checked
-                  ? [...memberIds, person.id]
-                  : memberIds.filter((id) => id !== person.id),
-              );
+        <div className="mt-1.5">
+          <UserMultiPicker
+            id={`client-${client.id}-members`}
+            users={people}
+            value={memberIds}
+            disabled={pending}
+            loading={usersRequest.loading}
+            onChange={(ids) => {
+              void saveMembers(ids);
             }}
           />
-        ))}
-      </ChoiceGroup>
+        </div>
+        <FieldMessages messages={fieldErrors.memberIds} />
+      </div>
     </section>
+  );
+}
+
+function mergePeople(
+  catalog: User[] | null | undefined,
+  members: SettingsUser[],
+): ProjectUser[] {
+  const byId = new Map<string, ProjectUser>();
+
+  for (const person of catalog ?? []) {
+    byId.set(person.id, { id: person.id, email: person.email, name: person.name });
+  }
+
+  for (const member of members) {
+    if (!byId.has(member.id)) {
+      byId.set(member.id, {
+        id: member.id,
+        email: member.email,
+        name: member.name,
+      });
+    }
+  }
+
+  return [...byId.values()].sort((left, right) =>
+    userLabel(left).localeCompare(userLabel(right)),
   );
 }
 

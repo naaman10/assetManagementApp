@@ -460,7 +460,7 @@ export function ClientEditor({ id }: { id: string }) {
                         }))}
                         value={client.settings.leadContact?.id ?? ""}
                         disabled={leadPending}
-                        showCode={leadOptions.some((contact) => contact.role)}
+                        showCode={leadOptions.some((contact) => Boolean(contact.role))}
                         inlineMenu
                         clearLabel="No lead"
                         listLabel="Contacts"
@@ -554,16 +554,14 @@ function LeadRequired({
   onShowContacts: () => void;
 }) {
   return (
-    <div className="grid gap-2">
-      <span>{lead ? lead.name : "—"}</span>
-      <p className="text-sm font-normal leading-6 text-muted">
-        Add a contact from the{" "}
-        <button type="button" className="font-medium underline" onClick={onShowContacts}>
-          Contacts tab
-        </button>{" "}
-        to set a client lead.
-      </p>
-    </div>
+    <p className="text-sm font-normal leading-6 text-muted">
+      {lead ? `${lead.name}. ` : null}
+      Add a{" "}
+      <button type="button" className="font-medium underline" onClick={onShowContacts}>
+        contact
+      </button>{" "}
+      to set a lead.
+    </p>
   );
 }
 
