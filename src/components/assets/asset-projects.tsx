@@ -149,7 +149,7 @@ export function AssetProjectsSection({
             <li key={project.id}>
               <div className="flex min-w-0 items-start justify-between gap-3 rounded-md px-1 py-1.5 hover:bg-gray-50">
                 <Link href={`/projects/${project.id}`} className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-brand-500 hover:underline">
+                  <span className="block text-sm font-medium text-gray-800 hover:underline">
                     {project.title}
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">

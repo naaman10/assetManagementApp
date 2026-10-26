@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
-  DataTable,
   FieldMessages,
   FormBanner,
   bannerMessage,
 } from "@/components/form-controls";
 import { InlineSelect, InlineText, InlineTitle, Property } from "@/components/inline-field";
+import { ProjectAssetsSection } from "@/components/projects/project-assets";
 import { ProjectSitesTree } from "@/components/projects/project-sites-tree";
 import { UserMultiPicker } from "@/components/projects/user-multi-picker";
 import { useSession } from "@/components/session-provider";
@@ -321,27 +321,16 @@ export function ProjectDetail({ id }: { id: string }) {
               hidden={tab !== "assets"}
               className="mt-6"
             >
-              {project.assets.length === 0 ? (
-                <p className="text-sm text-gray-500">No assets yet.</p>
-              ) : (
-                <DataTable columns={["Tag", "Name"]}>
-                  {project.assets.map((asset) => (
-                    <tr key={asset.id} className="hover:bg-gray-50">
-                      <td className="px-5 py-4 text-sm">
-                        <Link
-                          href={`/assets/${asset.id}`}
-                          className="font-medium text-brand-500 hover:underline"
-                        >
-                          {asset.tag}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-medium text-gray-800">
-                        {asset.assetName ?? "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </DataTable>
-              )}
+              <ProjectAssetsSection
+                project={project}
+                canEdit={canEdit}
+                onChanged={async () => {
+                  const next = parseProjectBody(
+                    await apiRequest(`/api/projects/${loaded.id}`),
+                  );
+                  setSaved(next);
+                }}
+              />
             </div>
           </section>
         </div>
