@@ -13,6 +13,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/form-controls";
+import { AssetFinder } from "@/components/projects/asset-finder";
 import { UserMultiPicker } from "@/components/projects/user-multi-picker";
 import { useSession } from "@/components/session-provider";
 import {
@@ -28,6 +29,7 @@ import {
   parseClientSites,
   parseLeadUsers,
   parseProjectBody,
+  type FinderAsset,
 } from "@/lib/projects";
 import { CLIENTS_VIEW, PROJECT_TYPES_VIEW, hasPermission } from "@/lib/session";
 
@@ -36,6 +38,7 @@ const STEPS = [
   { id: 2, label: "Details" },
   { id: 3, label: "Due date" },
   { id: 4, label: "Assignees" },
+  { id: 5, label: "Assets" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -65,8 +68,8 @@ export function CreateProject({
   const [step, setStep] = useState<StepId>(1);
   const [selectedClientId, setSelectedClientId] = useState(fixedClientId);
   const activeClientId = fixedClientId || selectedClientId;
-  const fixedClientRequest = useApi(
-    fixedClientId ? `/api/clients/${fixedClientId}` : null,
+  const clientSitesRequest = useApi(
+    !blocked && activeClientId ? `/api/clients/${activeClientId}` : null,
     parseClientSites,
   );
   const [title, setTitle] = useState("");
@@ -76,18 +79,26 @@ export function CreateProject({
   const [dueDate, setDueDate] = useState("");
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leadUserId, setLeadUserId] = useState("");
+  const [chosenAssets, setChosenAssets] = useState<FinderAsset[]>([]);
+  const [assetsForClient, setAssetsForClient] = useState(activeClientId);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [pending, setPending] = useState(false);
   const fieldErrors = error?.fieldErrors ?? {};
   const hideUsers = usersRequest.error?.status === 403;
-  const clientMissing = fixedClientRequest.error?.status === 404;
+  const clientMissing = Boolean(fixedClientId) && clientSitesRequest.error?.status === 404;
   const activeTypes = (typesRequest.data ?? []).filter((type) => type.isActive);
   const users = usersRequest.data ?? [];
+  const clientSites = clientSitesRequest.data;
   const clientLabel = fixedClientId
-    ? (fixedClientRequest.data?.name ??
-      (fixedClientRequest.loading ? "Loading client…" : "Client"))
+    ? (clientSites?.name ?? (clientSitesRequest.loading ? "Loading client…" : "Client"))
     : ((clientsRequest.data ?? []).find((client) => client.id === selectedClientId)?.name ??
+      clientSites?.name ??
       "Client");
+
+  if (activeClientId !== assetsForClient) {
+    setAssetsForClient(activeClientId);
+    setChosenAssets([]);
+  }
 
   useEffect(() => {
     if (blocked || clientMissing) {
@@ -141,7 +152,7 @@ export function CreateProject({
 
     setError(null);
 
-    if (step < 4) {
+    if (step < 5) {
       setStep((current) => (current + 1) as StepId);
     }
   }
@@ -155,7 +166,7 @@ export function CreateProject({
   }
 
   async function onCreate() {
-    for (const current of [1, 2, 3, 4] as const) {
+    for (const current of [1, 2, 3, 4, 5] as const) {
       const localErrors = validateStep(current);
 
       if (localErrors) {
@@ -181,6 +192,7 @@ export function CreateProject({
               dueDate,
               memberIds: hideUsers ? [] : memberIds,
               leadUserId: hideUsers ? "" : leadUserId,
+              assetIds: chosenAssets.map((asset) => asset.id),
             }),
           ),
         }),
@@ -419,6 +431,25 @@ export function CreateProject({
           )
         ) : null}
 
+        {step === 5 ? (
+          !activeClientId ? (
+            <p className="text-sm text-gray-500">Choose a client before selecting assets.</p>
+          ) : clientSitesRequest.loading && !clientSites ? (
+            <p className="text-sm text-gray-500">Loading sites…</p>
+          ) : clientSitesRequest.error ? (
+            <p className="text-sm text-error-500" role="alert">
+              {asApiError(clientSitesRequest.error).message}
+            </p>
+          ) : (
+            <AssetFinder
+              clientName={clientSites?.name ?? clientLabel}
+              sites={clientSites?.sites ?? []}
+              chosen={chosenAssets}
+              onChange={setChosenAssets}
+            />
+          )
+        ) : null}
+
         <div className="flex flex-wrap gap-3">
           {step > 1 ? (
             <button
@@ -439,7 +470,7 @@ export function CreateProject({
               Cancel
             </button>
           )}
-          {step < 4 ? (
+          {step < 5 ? (
             <button
               type="button"
               className={primaryButtonClassName}
@@ -517,6 +548,7 @@ function projectPayload(draft: {
   dueDate: string;
   memberIds: string[];
   leadUserId: string;
+  assetIds: string[];
 }) {
   const payload: Record<string, string | string[]> = {
     title: draft.title.trim(),
@@ -525,7 +557,7 @@ function projectPayload(draft: {
     status: "scheduled",
     dueDate: draft.dueDate,
     memberIds: draft.memberIds,
-    assetIds: [],
+    assetIds: draft.assetIds,
   };
   const description = draft.description.trim();
 

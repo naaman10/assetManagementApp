@@ -341,6 +341,13 @@ export function parentAllowsRoot(childType: LocationType | null): boolean {
   return allowedParentTypes(childType).includes("root");
 }
 
+export function locationAndDescendantIds(
+  locations: Location[],
+  rootId: string,
+): string[] {
+  return [rootId, ...descendantIds(locations, rootId)];
+}
+
 function descendantIds(locations: Location[], rootId: string): Set<string> {
   const children = buildLocationTree(locations);
   const excluded = new Set<string>();

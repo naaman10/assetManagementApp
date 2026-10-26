@@ -39,7 +39,7 @@ export function Modal({
     <dialog
       ref={dialogRef}
       aria-labelledby="modal-title"
-      className={`m-auto flex ${sizeClass} flex-col overflow-visible rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40`}
+      className={`m-auto flex ${sizeClass} flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 text-gray-800 shadow-theme-xs backdrop:bg-gray-900/40`}
       onCancel={(event) => {
         event.preventDefault();
         onCloseRef.current();
@@ -65,7 +65,7 @@ export function Modal({
           ×
         </button>
       </div>
-      <div className="mt-6 min-h-0 flex-1 overflow-visible">{children}</div>
+      <div className="mt-6 min-h-0 flex-1 overflow-y-auto overflow-x-visible">{children}</div>
     </dialog>
   );
 }
