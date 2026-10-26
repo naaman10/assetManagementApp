@@ -226,13 +226,13 @@ export function ClientEditor({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid min-w-0 gap-8">
+    <div className="flex min-w-0 flex-col gap-8">
       <Breadcrumbs
         current
         items={[{ label: "Clients", href: "/clients" }, { label: client.name }]}
       />
       <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
-        <div className="grid min-w-0 gap-8">
+        <div className="flex min-w-0 flex-col gap-8">
           <section>
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div className="min-w-0 flex-1">
@@ -297,11 +297,11 @@ export function ClientEditor({ id }: { id: string }) {
             </div>
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="border-b border-gray-200 pb-2">
               <h2 className="text-sm font-semibold text-gray-800">Sites</h2>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 min-w-0">
               <ClientSites
                 client={client}
                 canCreate={canCreate}
@@ -316,11 +316,11 @@ export function ClientEditor({ id }: { id: string }) {
             </div>
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="border-b border-gray-200 pb-2">
               <h2 className="text-sm font-semibold text-gray-800">Projects</h2>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 min-w-0">
               <ClientProjects clientId={client.id} />
             </div>
           </section>

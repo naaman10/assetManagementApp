@@ -182,9 +182,9 @@ export function SiteDetailView({ id }: { id: string }) {
   }
 
   return (
-    <div className="grid min-w-0 gap-8">
+    <div className="flex min-w-0 flex-col gap-8">
       <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
-        <div className="grid min-w-0 gap-8">
+        <div className="flex min-w-0 flex-col gap-8">
           <section>
             <Link
               href={`/clients/${site.client.id}`}
@@ -374,7 +374,7 @@ function SiteAssets({
   }
 
   return (
-    <section className="grid gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       {assets.assets.length === 0 ? (
         !canEdit ? (
           <p className="text-sm text-gray-500">No assets yet.</p>

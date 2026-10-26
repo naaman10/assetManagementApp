@@ -198,7 +198,7 @@ export function ProjectAssetsSection({
   ) : null;
 
   return (
-    <div className="grid gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {project.assets.length > 0 ? (
         <DataTable columns={["Tag", "Name"]}>
           {project.assets.map((asset) => (

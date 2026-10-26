@@ -130,7 +130,7 @@ export function AssetProjectsSection({
   ) : null;
 
   return (
-    <section className="grid gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       <div className="border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">
           Projects

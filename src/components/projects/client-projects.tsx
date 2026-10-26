@@ -25,7 +25,7 @@ export function ClientProjects({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section>
+    <section className="min-w-0">
       <div className="flex justify-end">
         <Link href={`/projects/new?client=${clientId}`} className={secondaryButtonClassName}>
           New project

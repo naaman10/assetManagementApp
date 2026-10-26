@@ -264,10 +264,10 @@ export function LocationDetail({ id }: { id: string }) {
   ];
 
   return (
-    <div className="grid min-w-0 gap-8">
+    <div className="flex min-w-0 flex-col gap-8">
       <Breadcrumbs current items={crumbItems} />
       <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
-        <div className="grid min-w-0 gap-8">
+        <div className="flex min-w-0 flex-col gap-8">
           <section>
             <p className="text-sm text-gray-500">
               {locationTypeLabel(location.locationType)}
@@ -654,7 +654,7 @@ function ChildLocationsSection({
       <div className="border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Child locations</h2>
       </div>
-      <div className="mt-3 grid gap-3">
+      <div className="mt-3 flex min-w-0 flex-col gap-3">
         {childLocations.length > 0 ? (
           <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
             {childLocations.map((child) => (
@@ -843,7 +843,7 @@ function LocationAssetsSection({
       <div className="border-b border-gray-200 pb-2">
         <h2 className="text-sm font-semibold text-gray-800">Assets</h2>
       </div>
-      <div className="mt-3 grid gap-3">
+      <div className="mt-3 flex min-w-0 flex-col gap-3">
         {assets.assets.length > 0 ? (
           <AssetTable assets={assets.assets} locations={locations} />
         ) : !canEdit && !adding && !creating ? (

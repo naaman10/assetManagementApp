@@ -29,7 +29,7 @@ export function ClientSites({
   }
 
   return (
-    <section>
+    <section className="min-w-0">
       {canCreate && !adding ? (
         <div className="flex justify-end">
           <button

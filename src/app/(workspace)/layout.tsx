@@ -22,7 +22,7 @@ export default async function WorkspaceLayout({
       <MobileSearchProvider>
         <div className="min-h-dvh">
           <AppHeader />
-          <main className="min-h-dvh px-4 pt-20 pb-6 lg:ml-[290px] lg:px-6 lg:pt-6">
+          <main className="min-h-dvh min-w-0 max-w-full px-4 pt-20 pb-6 lg:ml-[290px] lg:px-6 lg:pt-6">
             <GlobalSearch />
             {children}
           </main>

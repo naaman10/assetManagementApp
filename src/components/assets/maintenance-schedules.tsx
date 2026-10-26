@@ -100,7 +100,7 @@ export function MaintenanceSchedulePanel({
   const creating = open === "create";
 
   return (
-    <section className="grid gap-3">
+    <section className="flex min-w-0 flex-col gap-3">
       {error ? (
         <p className="text-sm leading-6 text-ink" role="alert">
           {error}
