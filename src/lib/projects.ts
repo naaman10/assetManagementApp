@@ -20,6 +20,30 @@ export type ProjectAsset = {
   locationId: string;
 };
 
+export type ProjectSiteAsset = {
+  id: string;
+  tag: string;
+  assetName: string | null;
+};
+
+export type ProjectLocationNode = {
+  id: string;
+  parentLocationId: string | null;
+  locationCode: string | null;
+  name: string | null;
+  locationType: string | null;
+  status: string;
+  assets: ProjectSiteAsset[];
+  locations: ProjectLocationNode[];
+};
+
+export type ProjectSite = {
+  id: string;
+  name: string;
+  reference: string | null;
+  locations: ProjectLocationNode[];
+};
+
 export type ProjectTypeRef = {
   id: string;
   code: string;
@@ -40,6 +64,7 @@ export type Project = {
   members: ProjectUser[];
   client: ProjectClient;
   assets: ProjectAsset[];
+  sites: ProjectSite[];
 };
 
 export type ProjectList = {
@@ -256,7 +281,99 @@ function parseProject(value: unknown): Project {
       name: requiredString(client, "name"),
     },
     assets: parseProjectAssets(record.assets),
+    sites: parseProjectSites(record.sites),
   };
+}
+
+function parseProjectSites(value: unknown): ProjectSite[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map((item) => {
+    const record = objectRecord(item, "site");
+
+    return {
+      id: requiredString(record, "id"),
+      name: requiredString(record, "name"),
+      reference: optionalString(record, "reference"),
+      locations: parseProjectLocationNodes(record.locations),
+    };
+  });
+}
+
+function parseProjectLocationNodes(value: unknown): ProjectLocationNode[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map((item) => {
+    const record = objectRecord(item, "location");
+
+    return {
+      id: requiredString(record, "id"),
+      parentLocationId: optionalString(record, "parentLocationId"),
+      locationCode: optionalString(record, "locationCode"),
+      name: optionalString(record, "name"),
+      locationType: optionalString(record, "locationType"),
+      status: typeof record.status === "string" ? record.status : "active",
+      assets: parseProjectSiteAssets(record.assets),
+      locations: parseProjectLocationNodes(record.locations),
+    };
+  });
+}
+
+function parseProjectSiteAssets(value: unknown): ProjectSiteAsset[] {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("The response could not be read.");
+  }
+
+  return value.map((item) => {
+    const record = objectRecord(item, "asset");
+
+    return {
+      id: requiredString(record, "id"),
+      tag: requiredString(record, "tag"),
+      assetName: optionalString(record, "assetName"),
+    };
+  });
+}
+
+export function countProjectSiteAssets(sites: ProjectSite[]): number {
+  return sites.reduce((total, site) => total + countLocationAssets(site.locations), 0);
+}
+
+export function countProjectLocations(sites: ProjectSite[]): number {
+  return sites.reduce((total, site) => total + countLocationNodes(site.locations), 0);
+}
+
+function countLocationAssets(nodes: ProjectLocationNode[]): number {
+  return nodes.reduce(
+    (total, node) => total + node.assets.length + countLocationAssets(node.locations),
+    0,
+  );
+}
+
+function countLocationNodes(nodes: ProjectLocationNode[]): number {
+  return nodes.reduce((total, node) => total + 1 + countLocationNodes(node.locations), 0);
+}
+
+export function projectLocationLabel(
+  location: Pick<ProjectLocationNode, "name" | "locationCode">,
+): string {
+  return location.name ?? location.locationCode ?? "Untitled location";
 }
 
 function parseProjectUsers(value: unknown): ProjectUser[] {

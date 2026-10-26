@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DataTable } from "@/components/form-controls";
 import { InlineText, InlineTitle, Property } from "@/components/inline-field";
+import { ProjectSitesTree } from "@/components/projects/project-sites-tree";
 import { useSession } from "@/components/session-provider";
 import { StatusToolbar } from "@/components/status-toolbar";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
 import {
   PROJECT_STATUSES,
+  countProjectLocations,
   formatProjectDate,
   leadLabel,
   parseProjectBody,
@@ -20,14 +22,23 @@ import {
 } from "@/lib/projects";
 import { CLIENTS_EDIT, CLIENTS_VIEW, hasPermission } from "@/lib/session";
 
+const tabs = [
+  { id: "locations", label: "Locations" },
+  { id: "assets", label: "Assets" },
+] as const;
+
+type ProjectTab = (typeof tabs)[number]["id"];
+
 export function ProjectDetail({ id }: { id: string }) {
   const router = useRouter();
   const { user } = useSession();
+  const tablistId = useId();
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const request = useApi(canView ? `/api/projects/${id}` : null, parseProjectBody);
   const [saved, setSaved] = useState<Project | null>(null);
   const [savedFor, setSavedFor] = useState(id);
+  const [tab, setTab] = useState<ProjectTab>("locations");
   const missing = request.error?.status === 404;
 
   useEffect(() => {
@@ -63,6 +74,7 @@ export function ProjectDetail({ id }: { id: string }) {
   if (savedFor !== id) {
     setSavedFor(id);
     setSaved(null);
+    setTab("locations");
   }
 
   const project = saved?.id === request.data?.id ? saved : request.data;
@@ -72,6 +84,7 @@ export function ProjectDetail({ id }: { id: string }) {
   }
 
   const loaded = project;
+  const locationCount = countProjectLocations(project.sites);
 
   async function saveProject(patch: Record<string, unknown>) {
     try {
@@ -177,15 +190,55 @@ export function ProjectDetail({ id }: { id: string }) {
           </section>
 
           <section>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2">
-              <h2 className="text-sm font-semibold text-gray-800">
-                Assets
-                <span className="ml-2 font-medium text-gray-500">
-                  {project.assets.length}
-                </span>
-              </h2>
+            <div
+              role="tablist"
+              aria-label="Project records"
+              className="flex flex-wrap gap-6 border-b border-gray-200"
+            >
+              {tabs.map((item) => {
+                const selected = tab === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    id={`${tablistId}-${item.id}`}
+                    aria-selected={selected}
+                    aria-controls={`${tablistId}-${item.id}-panel`}
+                    onClick={() => {
+                      setTab(item.id);
+                    }}
+                    className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+                      selected
+                        ? "border-brand-500 text-brand-500"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {item.label}
+                    <span className="ml-2 font-medium text-gray-500">
+                      {item.id === "locations" ? locationCount : project.assets.length}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="mt-4">
+            <div
+              role="tabpanel"
+              id={`${tablistId}-locations-panel`}
+              aria-labelledby={`${tablistId}-locations`}
+              hidden={tab !== "locations"}
+              className="mt-6"
+            >
+              <ProjectSitesTree sites={project.sites} />
+            </div>
+            <div
+              role="tabpanel"
+              id={`${tablistId}-assets-panel`}
+              aria-labelledby={`${tablistId}-assets`}
+              hidden={tab !== "assets"}
+              className="mt-6"
+            >
               {project.assets.length === 0 ? (
                 <p className="text-sm text-gray-500">No assets yet.</p>
               ) : (
