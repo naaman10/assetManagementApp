@@ -518,22 +518,95 @@ function CommentRow({
               : "border-gray-200 bg-gray-50"
           }`}
         >
-          <p className="whitespace-pre-wrap text-sm leading-6 text-gray-800">{comment.body}</p>
-          {comment.mentions.length > 0 ? (
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {comment.mentions.map((mention) => (
-                <li key={mention.id}>
-                  <Badge tone={mention.id === currentUserId ? "success" : "light"}>
-                    @{commentAuthorLabel(mention)}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <CommentBody
+            body={comment.body}
+            mentions={comment.mentions}
+            currentUserId={currentUserId}
+          />
         </div>
       </div>
     </li>
   );
+}
+
+function CommentBody({
+  body,
+  mentions,
+  currentUserId,
+}: {
+  body: string;
+  mentions: AssetComment["mentions"];
+  currentUserId: string;
+}) {
+  const parts = splitBodyMentions(body, mentions);
+
+  return (
+    <p className="whitespace-pre-wrap text-sm leading-6 text-gray-800">
+      {parts.map((part, index) =>
+        part.type === "mention" ? (
+          <Badge
+            key={`${part.user.id}-${index}`}
+            tone={part.user.id === currentUserId ? "success" : "light"}
+          >
+            @{commentAuthorLabel(part.user)}
+          </Badge>
+        ) : (
+          <span key={`text-${index}`}>{part.text}</span>
+        ),
+      )}
+    </p>
+  );
+}
+
+function splitBodyMentions(
+  body: string,
+  mentions: AssetComment["mentions"],
+): Array<
+  | { type: "text"; text: string }
+  | { type: "mention"; user: AssetComment["mentions"][number] }
+> {
+  if (mentions.length === 0 || body.length === 0) {
+    return [{ type: "text", text: body }];
+  }
+
+  const tagged = mentions
+    .map((user) => ({ user, tag: `@${commentAuthorLabel(user)}` }))
+    .sort((left, right) => right.tag.length - left.tag.length);
+  const byTag = new Map(tagged.map((item) => [item.tag, item.user]));
+  const pattern = tagged.map((item) => escapeRegExp(item.tag)).join("|");
+  const matcher = new RegExp(pattern, "g");
+  const parts: Array<
+    | { type: "text"; text: string }
+    | { type: "mention"; user: AssetComment["mentions"][number] }
+  > = [];
+  let lastIndex = 0;
+
+  for (const match of body.matchAll(matcher)) {
+    const tag = match[0];
+    const index = match.index ?? 0;
+    const user = byTag.get(tag);
+
+    if (!user) {
+      continue;
+    }
+
+    if (index > lastIndex) {
+      parts.push({ type: "text", text: body.slice(lastIndex, index) });
+    }
+
+    parts.push({ type: "mention", user });
+    lastIndex = index + tag.length;
+  }
+
+  if (lastIndex < body.length) {
+    parts.push({ type: "text", text: body.slice(lastIndex) });
+  }
+
+  return parts.length > 0 ? parts : [{ type: "text", text: body }];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function AuthorAvatar({ name }: { name: string }) {
