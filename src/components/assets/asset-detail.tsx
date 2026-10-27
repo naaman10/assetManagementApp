@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AssetTypePicker } from "@/components/assets/asset-type-picker";
 import { assetStatusLabel } from "@/components/assets/asset-table";
+import { AssetCommentsPanel } from "@/components/assets/asset-comments";
 import { AssetProjectsSection } from "@/components/assets/asset-projects";
 import { MaintenanceHistoryPanel } from "@/components/assets/maintenance-history";
 import { MaintenanceSchedulePanel } from "@/components/assets/maintenance-schedules";
@@ -27,6 +28,10 @@ import { StatusToolbar } from "@/components/status-toolbar";
 import { Nrm3ClassificationPicker } from "@/components/nrm3-classifications/nrm3-classification-picker";
 import { useSession } from "@/components/session-provider";
 import { ApiRequestError, apiRequest, asApiError, useApi } from "@/lib/api-client";
+import {
+  parseAssetCommentList,
+  type AssetCommentList,
+} from "@/lib/asset-comments";
 import { parseAssetTypeList, type AssetType } from "@/lib/asset-types";
 import {
   parseMaintenanceHistoryList,
@@ -68,7 +73,7 @@ import {
   type AssetStatus,
 } from "@/lib/sites";
 
-type RecordTab = "schedules" | "orders" | "history";
+type RecordTab = "schedules" | "orders" | "history" | "comments";
 
 export function AssetDetail({ id }: { id: string }) {
   return (
@@ -135,6 +140,10 @@ function AssetDetailContent({ id }: { id: string }) {
     canView && request.data ? `/api/assets/${request.data.id}/maintenance-history` : null,
     parseMaintenanceHistoryList,
   );
+  const commentsRequest = useApi(
+    canView && request.data ? `/api/assets/${request.data.id}/comments` : null,
+    parseAssetCommentList,
+  );
   const [saved, setSaved] = useState<Asset | null>(null);
   const [savedFor, setSavedFor] = useState(id);
   const [savedSchedules, setSavedSchedules] = useState<MaintenanceScheduleList | null>(null);
@@ -146,6 +155,8 @@ function AssetDetailContent({ id }: { id: string }) {
   const [savedHistory, setSavedHistory] = useState<MaintenanceHistoryList | null>(null);
   const [historyFor, setHistoryFor] = useState(id);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [savedComments, setSavedComments] = useState<AssetCommentList | null>(null);
+  const [commentsFor, setCommentsFor] = useState(id);
   const [savedSiteAssets, setSavedSiteAssets] = useState<AssetList | null>(null);
   const [siteAssetsFor, setSiteAssetsFor] = useState(id);
   const [recordTab, setRecordTab] = useState<RecordTab>("schedules");
@@ -160,6 +171,7 @@ function AssetDetailContent({ id }: { id: string }) {
     schedulesFor !== id ||
     ordersFor !== id ||
     historyFor !== id ||
+    commentsFor !== id ||
     siteAssetsFor !== id ||
     recordTabFor !== id;
 
@@ -168,12 +180,14 @@ function AssetDetailContent({ id }: { id: string }) {
     setSchedulesFor(id);
     setOrdersFor(id);
     setHistoryFor(id);
+    setCommentsFor(id);
     setSiteAssetsFor(id);
     setRecordTabFor(id);
     setSaved(null);
     setSavedSchedules(null);
     setSavedOrders(null);
     setSavedHistory(null);
+    setSavedComments(null);
     setSavedSiteAssets(null);
     setScheduleError(null);
     setOrderError(null);
@@ -232,6 +246,7 @@ function AssetDetailContent({ id }: { id: string }) {
   const scheduleList = savedSchedules ?? schedulesRequest.data;
   const orderList = savedOrders ?? ordersRequest.data;
   const historyList = savedHistory ?? historyRequest.data;
+  const commentList = savedComments ?? commentsRequest.data;
 
   function clearQuery(name: "schedule" | "history") {
     const params = new URLSearchParams(searchParams.toString());
@@ -544,6 +559,7 @@ function AssetDetailContent({ id }: { id: string }) {
                   ["schedules", "Maintenance schedules", scheduleList?.maintenanceScheduleCount],
                   ["orders", "Work orders", orderList?.workOrderCount],
                   ["history", "Maintenance history", historyList?.maintenanceHistoryCount],
+                  ["comments", "Comments", commentList?.commentCount],
                 ] as const
               ).map(([itemId, label, count]) => {
                 const selected = recordTab === itemId;
@@ -649,6 +665,24 @@ function AssetDetailContent({ id }: { id: string }) {
                     : undefined
                 }
                 onReload={reloadHistory}
+                onAssetMissing={() => {
+                  router.replace("/sites");
+                }}
+              />
+            </div>
+            <div
+              role="tabpanel"
+              id={`${tablistId}-comments-panel`}
+              aria-labelledby={`${tablistId}-comments`}
+              hidden={recordTab !== "comments"}
+              className="mt-6"
+            >
+              <AssetCommentsPanel
+                assetId={asset.id}
+                comments={commentList}
+                loading={commentsRequest.loading && !commentList}
+                error={commentList ? null : (commentsRequest.error?.message ?? null)}
+                onComments={setSavedComments}
                 onAssetMissing={() => {
                   router.replace("/sites");
                 }}
