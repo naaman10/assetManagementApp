@@ -501,28 +501,28 @@ function CommentRow({
     <li className="flex min-w-0 items-start gap-3">
       <AuthorAvatar name={authorLabel} />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="min-w-0 text-sm text-gray-500">
-            <span className="font-medium text-gray-800">{authorLabel}</span>
-            <span className="mx-1.5 text-gray-300" aria-hidden="true">
-              ·
-            </span>
-            <time dateTime={comment.createdAt}>{formatCommentTime(comment.createdAt)}</time>
-          </p>
-          {isAuthor ? <CommentMenu deleting={deleting} onDelete={onDelete} /> : null}
-        </div>
+        <p className="min-w-0 text-sm text-gray-500">
+          <span className="font-medium text-gray-800">{authorLabel}</span>
+          <span className="mx-1.5 text-gray-300" aria-hidden="true">
+            ·
+          </span>
+          <time dateTime={comment.createdAt}>{formatCommentTime(comment.createdAt)}</time>
+        </p>
         <div
-          className={`mt-1.5 min-w-0 rounded-2xl rounded-tl-md border px-4 py-3 ${
+          className={`mt-1.5 flex min-w-0 items-start gap-2 rounded-2xl rounded-tl-md border px-4 py-3 ${
             mentionsMe
               ? "border-brand-300 bg-brand-25"
               : "border-gray-200 bg-gray-50"
           }`}
         >
-          <CommentBody
-            body={comment.body}
-            mentions={comment.mentions}
-            currentUserId={currentUserId}
-          />
+          <div className="min-w-0 flex-1">
+            <CommentBody
+              body={comment.body}
+              mentions={comment.mentions}
+              currentUserId={currentUserId}
+            />
+          </div>
+          {isAuthor ? <CommentMenu deleting={deleting} onDelete={onDelete} /> : null}
         </div>
       </div>
     </li>
