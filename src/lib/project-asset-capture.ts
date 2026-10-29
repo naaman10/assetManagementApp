@@ -8,6 +8,7 @@ import {
 } from "@/lib/projects";
 import { parseProjectTypeBody } from "@/lib/project-types";
 import { parseAssetBody } from "@/lib/sites";
+import { parseSurveyPhotoList, type SurveyPhoto } from "@/lib/survey-records";
 
 export const CAPTURE_FIELD_TYPES = [
   "text",
@@ -18,6 +19,7 @@ export const CAPTURE_FIELD_TYPES = [
   "select",
   "reference",
   "referenceList",
+  "media",
 ] as const;
 
 export type CaptureFieldType = (typeof CAPTURE_FIELD_TYPES)[number];
@@ -300,7 +302,7 @@ export async function saveProjectAssetCapture(
   };
 }
 
-async function findProjectAssetSurveyRecordId(
+export async function findProjectAssetSurveyRecordId(
   projectId: string,
   assetId: string,
 ): Promise<string | null> {
@@ -485,14 +487,32 @@ export function initialCaptureValues(fields: CaptureField[]): CaptureValues {
   };
 
   for (const field of fields) {
-    if (field.source === "asset") {
-      values.asset[field.key] = normalizeIncomingValue(field);
+    if (field.source === "asset" || field.type === "media") {
+      values[field.source][field.key] = normalizeIncomingValue(field);
     } else {
       values[field.source][field.key] = emptyValueForType(field.type);
     }
   }
 
   return values;
+}
+
+export function mediaPhotosFromValue(value: unknown): SurveyPhoto[] {
+  try {
+    return parseSurveyPhotoList(value);
+  } catch {
+    return [];
+  }
+}
+
+export function capturePhotosFieldValue(
+  fields: CaptureField[],
+): SurveyPhoto[] {
+  const field = fields.find(
+    (item) => item.source === "survey_record" && item.key === "photos",
+  );
+
+  return field ? mediaPhotosFromValue(field.value) : [];
 }
 
 export function emptySectionValues(fields: CaptureField[]): Record<string, unknown> {
@@ -510,7 +530,7 @@ export function isSectionDirty(
   values: Record<string, unknown>,
 ): boolean {
   return fields.some((field) => {
-    if (READ_ONLY_CAPTURE_KEYS.has(field.key)) {
+    if (READ_ONLY_CAPTURE_KEYS.has(field.key) || field.type === "media") {
       return false;
     }
 
@@ -522,6 +542,7 @@ export function sectionHasRequired(fields: CaptureField[]): boolean {
   return fields.some(
     (field) =>
       field.required &&
+      field.type !== "media" &&
       !READ_ONLY_CAPTURE_KEYS.has(field.key) &&
       !isMaintenanceCreateGateKey(field.key),
   );
@@ -567,7 +588,7 @@ export function validateCaptureValues(
     }
 
     for (const field of sectionFields) {
-      if (!field.required) {
+      if (!field.required || field.type === "media") {
         continue;
       }
 
@@ -688,6 +709,10 @@ function serializeSection(
   const payload: Record<string, unknown> = {};
 
   for (const field of fields) {
+    if (field.type === "media") {
+      continue;
+    }
+
     payload[field.key] = serializeValue(values[field.key], field.type);
   }
 
@@ -696,6 +721,8 @@ function serializeSection(
 
 function serializeValue(value: unknown, type: CaptureFieldType): unknown {
   switch (type) {
+    case "media":
+      return undefined;
     case "text":
     case "select":
     case "reference": {
@@ -745,6 +772,10 @@ function serializeValue(value: unknown, type: CaptureFieldType): unknown {
 }
 
 function normalizeIncomingValue(field: CaptureField): unknown {
+  if (field.type === "media") {
+    return mediaPhotosFromValue(field.value);
+  }
+
   if (field.value == null) {
     return emptyValueForType(field.type);
   }
@@ -779,6 +810,7 @@ function emptyValueForType(type: CaptureFieldType): unknown {
     case "boolean":
       return false;
     case "referenceList":
+    case "media":
       return [];
     case "number":
     case "text":
@@ -795,6 +827,10 @@ function emptyValueForType(type: CaptureFieldType): unknown {
 function isEmptyValue(value: unknown, type: CaptureFieldType): boolean {
   if (type === "boolean") {
     return false;
+  }
+
+  if (type === "media") {
+    return !Array.isArray(value) || value.length === 0;
   }
 
   if (type === "referenceList") {

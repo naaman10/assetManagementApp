@@ -14,12 +14,14 @@ import { parseAssetTypeList } from "@/lib/asset-types";
 import { parseLocationBody, locationLabel } from "@/lib/locations";
 import { parseMaintenanceTypeList } from "@/lib/maintenance-types";
 import { parseNrm3ClassificationList } from "@/lib/nrm3-classifications";
+import { SurveyCapturePhotos } from "@/components/projects/survey-capture-photos";
 import {
   LONG_TEXT_KEYS,
   READ_ONLY_CAPTURE_KEYS,
   SURVEY_CONDITION_CODES,
   SURVEY_STATUSES,
   datetimeLocalValue,
+  mediaPhotosFromValue,
   surveyStatusLabel,
   type CaptureField,
   type CaptureSource,
@@ -27,6 +29,7 @@ import {
 import { parseLeadUsers, type ProjectUser } from "@/lib/projects";
 import { ASSET_STATUSES, parseAssetList } from "@/lib/sites";
 import { parseWorkOrderList } from "@/lib/work-orders";
+import type { SurveyPhoto } from "@/lib/survey-records";
 
 export function ProjectAssetCaptureField({
   field,
@@ -36,7 +39,9 @@ export function ProjectAssetCaptureField({
   messages,
   assetId,
   locationId,
+  surveyRecordId = null,
   onChange,
+  onRefreshPhotos,
 }: {
   field: CaptureField;
   source: CaptureSource;
@@ -45,7 +50,9 @@ export function ProjectAssetCaptureField({
   messages?: string[];
   assetId: string;
   locationId: string;
+  surveyRecordId?: string | null;
   onChange: (value: unknown) => void;
+  onRefreshPhotos?: () => Promise<boolean>;
 }) {
   const id = `capture-${source}-${field.key}`;
   const readOnly = READ_ONLY_CAPTURE_KEYS.has(field.key) || disabled;
@@ -71,6 +78,24 @@ export function ProjectAssetCaptureField({
 
   if (field.key === "referenceNumber") {
     return null;
+  }
+
+  if (field.type === "media") {
+    const photos: SurveyPhoto[] = mediaPhotosFromValue(value);
+
+    return (
+      <div className="sm:col-span-2">
+        <SurveyCapturePhotos
+          photos={photos}
+          surveyRecordId={surveyRecordId}
+          canEdit={!disabled}
+          required={field.required}
+          onChange={onChange}
+          onRefresh={onRefreshPhotos}
+        />
+        <FieldMessages messages={messages} />
+      </div>
+    );
   }
 
   if (field.type === "boolean") {

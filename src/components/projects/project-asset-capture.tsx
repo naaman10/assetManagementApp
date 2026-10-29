@@ -19,13 +19,16 @@ import { ApiRequestError, apiRequest, asApiError } from "@/lib/api-client";
 import {
   availableCaptureTabs,
   buildCapturePutBody,
+  capturePhotosFieldValue,
   emptySectionValues,
   fetchProjectAssetCapture,
   fieldErrorKey,
   fieldsForSource,
+  findProjectAssetSurveyRecordId,
   initialCaptureValues,
   isSectionDirty,
   mapApiFieldPaths,
+  mediaPhotosFromValue,
   saveProjectAssetCapture,
   validateCaptureValues,
   withMaintenanceCreateFields,
@@ -64,6 +67,7 @@ export function ProjectAssetCapturePage({
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [success, setSuccess] = useState<string | null>(null);
+  const [surveyRecordId, setSurveyRecordId] = useState<string | null>(null);
   const projectHref = `/projects/${projectId}`;
 
   useEffect(() => {
@@ -78,16 +82,29 @@ export function ProjectAssetCapturePage({
     setLoadError(null);
     setCapture(null);
     setValues(null);
+    setSurveyRecordId(null);
 
     fetchProjectAssetCapture(projectId, assetId)
-      .then((next) => {
+      .then(async (next) => {
         if (cancelled) {
           return;
         }
 
         const fields = withMaintenanceCreateFields(next.fields);
+        const hasPhotos = fields.some(
+          (field) => field.source === "survey_record" && field.type === "media",
+        );
+        const existingSurveyId = hasPhotos
+          ? await findProjectAssetSurveyRecordId(projectId, assetId)
+          : null;
+
+        if (cancelled) {
+          return;
+        }
+
         setCapture(next);
         setValues(initialCaptureValues(fields));
+        setSurveyRecordId(existingSurveyId);
         setTab(availableCaptureTabs(fields)[0]?.source ?? "asset");
         setLoading(false);
       })
@@ -252,6 +269,7 @@ export function ProjectAssetCapturePage({
     setSuccess(null);
 
     try {
+      const previousPhotos = mediaPhotosFromValue(values.survey_record.photos);
       const body = buildCapturePutBody(fields, values);
       const result = await saveProjectAssetCapture(projectId, assetId, body);
       const nextFields = withMaintenanceCreateFields(result.capture.fields);
@@ -263,8 +281,19 @@ export function ProjectAssetCapturePage({
         fieldsForSource(nextFields, "maintenance_history"),
       );
 
+      const responsePhotos = capturePhotosFieldValue(result.capture.fields);
+      const nextPhotos =
+        responsePhotos.length > 0 ? responsePhotos : previousPhotos;
+      nextValues.survey_record.photos = nextPhotos;
+
+      const nextSurveyId =
+        result.surveyRecordId ??
+        surveyRecordId ??
+        (await findProjectAssetSurveyRecordId(projectId, assetId));
+
       setCapture(result.capture);
       setValues(nextValues);
+      setSurveyRecordId(nextSurveyId);
       setSuccess(successMessage(result));
     } catch (caught) {
       const apiError = asApiError(caught);
@@ -471,8 +500,16 @@ export function ProjectAssetCapturePage({
                       messages={fieldErrors[fieldErrorKey(field.source, field.key)]}
                       assetId={capture.asset.id}
                       locationId={capture.asset.locationId}
+                      surveyRecordId={surveyRecordId}
                       onChange={(next) => {
                         setFieldValue(field.source, field.key, next);
+                      }}
+                      onRefreshPhotos={async () => {
+                        const next = await fetchProjectAssetCapture(projectId, assetId);
+                        const photos = capturePhotosFieldValue(next.fields);
+                        setCapture(next);
+                        setFieldValue("survey_record", "photos", photos);
+                        return true;
                       }}
                     />
                   </div>
@@ -513,6 +550,10 @@ export function ProjectAssetCapturePage({
 }
 
 function wideField(field: CaptureField): boolean {
+  if (field.type === "media") {
+    return true;
+  }
+
   return (
     field.type === "text" &&
     (field.key === "workDescription" ||

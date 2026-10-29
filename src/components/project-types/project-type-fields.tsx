@@ -392,7 +392,11 @@ export function ProjectTypeFields({
                                     ) : null}
                                     <FieldCard
                                       label={field.label}
-                                      detail={catalogField?.type ?? field.type}
+                                      detail={
+                                        (catalogField?.type ?? field.type) === "media"
+                                          ? "media · Uploaded after the survey is saved on the asset capture form."
+                                          : (catalogField?.type ?? field.type)
+                                      }
                                       draggable={canEdit && !pending}
                                       dragging={draggingId === id}
                                       onDragStart={(event) => {
@@ -567,9 +571,13 @@ export function ProjectTypeFields({
                                     <FieldCard
                                       label={field.label}
                                       detail={
-                                        field.description
-                                          ? `${field.type} · ${field.description}`
-                                          : field.type
+                                        field.type === "media"
+                                          ? field.description
+                                            ? `media · ${field.description}`
+                                            : "media · Uploaded after the survey is saved on the asset capture form."
+                                          : field.description
+                                            ? `${field.type} · ${field.description}`
+                                            : field.type
                                       }
                                       draggable={canEdit && !pending}
                                       dragging={draggingId === id}

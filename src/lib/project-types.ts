@@ -98,9 +98,33 @@ export function parseProjectTypeBody(data: unknown): ProjectType {
 
 export function parseProjectTypeFieldCatalog(data: unknown): ProjectTypeFieldCatalog {
   const record = objectRecord(data, "project type field catalog");
-  const fields = parseCatalogFields(record.fields);
+  const fields = withSurveyPhotosCatalogField(parseCatalogFields(record.fields));
 
   return { fields };
+}
+
+/** Ensure Photos (media) is available even if the catalog API omits it. */
+function withSurveyPhotosCatalogField(
+  fields: ProjectTypeFieldCatalogItem[],
+): ProjectTypeFieldCatalogItem[] {
+  if (
+    fields.some(
+      (field) => field.source === "survey_record" && field.key === "photos",
+    )
+  ) {
+    return fields;
+  }
+
+  return [
+    ...fields,
+    {
+      source: "survey_record",
+      key: "photos",
+      label: "Photos",
+      type: "media",
+      description: "Uploaded after the survey is saved on the asset capture form.",
+    },
+  ];
 }
 
 function parseProjectType(value: unknown): ProjectType {
