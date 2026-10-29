@@ -312,7 +312,7 @@ export function ProjectDetail({ id }: { id: string }) {
               hidden={tab !== "locations"}
               className="mt-6"
             >
-              <ProjectSitesTree sites={project.sites} />
+              <ProjectSitesTree sites={project.sites} projectId={project.id} />
             </div>
             <div
               role="tabpanel"

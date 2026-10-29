@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Badge, TextField } from "@/components/form-controls";
+import { ReviewStatusBadge } from "@/components/projects/review-status-badge";
 import {
   LOCATION_STATUSES,
   LOCATION_TYPES,
@@ -18,7 +19,13 @@ import {
   type ProjectSiteAsset,
 } from "@/lib/projects";
 
-export function ProjectSitesTree({ sites }: { sites: ProjectSite[] }) {
+export function ProjectSitesTree({
+  sites,
+  projectId,
+}: {
+  sites: ProjectSite[];
+  projectId: string;
+}) {
   const [query, setQuery] = useState("");
   const [expandedSites, setExpandedSites] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sites.map((site) => [site.id, true])),
@@ -109,6 +116,7 @@ export function ProjectSitesTree({ sites }: { sites: ProjectSite[] }) {
                             key={row.node.id}
                             node={row.node}
                             depth={row.depth}
+                            projectId={projectId}
                             searching={Boolean(needle)}
                             expanded={Boolean(expandedLocations[row.node.id])}
                             onToggle={() => {
@@ -135,12 +143,14 @@ export function ProjectSitesTree({ sites }: { sites: ProjectSite[] }) {
 function LocationRow({
   node,
   depth,
+  projectId,
   searching,
   expanded,
   onToggle,
 }: {
   node: ProjectLocationNode;
   depth: number;
+  projectId: string;
   searching: boolean;
   expanded: boolean;
   onToggle: () => void;
@@ -200,7 +210,12 @@ function LocationRow({
       {showChildren && node.assets.length > 0 ? (
         <ul className="divide-y divide-gray-50 bg-gray-50/60">
           {node.assets.map((asset) => (
-            <AssetRow key={asset.id} asset={asset} depth={depth + 1} />
+            <AssetRow
+              key={asset.id}
+              asset={asset}
+              depth={depth + 1}
+              projectId={projectId}
+            />
           ))}
         </ul>
       ) : null}
@@ -208,19 +223,30 @@ function LocationRow({
   );
 }
 
-function AssetRow({ asset, depth }: { asset: ProjectSiteAsset; depth: number }) {
+function AssetRow({
+  asset,
+  depth,
+  projectId,
+}: {
+  asset: ProjectSiteAsset;
+  depth: number;
+  projectId: string;
+}) {
   return (
     <li
-      className="flex items-baseline gap-2 px-4 py-2.5"
+      className="flex items-center gap-2 px-4 py-2.5"
       style={{ paddingLeft: 16 + depth * 16 + 28 }}
     >
       <Link
-        href={`/assets/${asset.id}`}
+        href={`/projects/${projectId}/assets/${asset.id}`}
         className="shrink-0 text-sm font-medium text-brand-500 hover:underline"
       >
         {asset.tag}
       </Link>
-      <span className="min-w-0 truncate text-sm text-gray-700">{asset.assetName ?? "—"}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+        {asset.assetName ?? "—"}
+      </span>
+      <ReviewStatusBadge status={asset.reviewStatus} />
     </li>
   );
 }

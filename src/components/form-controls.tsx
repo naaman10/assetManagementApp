@@ -234,12 +234,13 @@ export function Badge({
   tone = "light",
 }: {
   children: React.ReactNode;
-  tone?: "light" | "error" | "success";
+  tone?: "light" | "error" | "success" | "info";
 }) {
   const tones = {
     light: "bg-gray-100 text-gray-700",
     error: "bg-error-50 text-error-600",
     success: "bg-success-50 text-success-600",
+    info: "bg-brand-50 text-brand-600",
   };
 
   return (

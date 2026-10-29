@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AssetForm } from "@/components/assets/asset-form";
 import { DataTable, inputClassName } from "@/components/form-controls";
 import { Modal } from "@/components/modal";
+import { ReviewStatusBadge } from "@/components/projects/review-status-badge";
 import { apiRequest, asApiError, useApi } from "@/lib/api-client";
 import { parseLocationList, type Location } from "@/lib/locations";
 import { parseClientSites, type Project } from "@/lib/projects";
@@ -200,12 +201,12 @@ export function ProjectAssetsSection({
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {project.assets.length > 0 ? (
-        <DataTable columns={["Tag", "Name"]}>
+        <DataTable columns={["Tag", "Name", "Review"]}>
           {project.assets.map((asset) => (
             <tr key={asset.id} className="hover:bg-gray-50">
               <td className="px-5 py-4 text-sm">
                 <Link
-                  href={`/assets/${asset.id}`}
+                  href={`/projects/${project.id}/assets/${asset.id}`}
                   className="font-medium text-brand-500 hover:underline"
                 >
                   {asset.tag}
@@ -213,6 +214,9 @@ export function ProjectAssetsSection({
               </td>
               <td className="px-5 py-4 text-sm font-medium text-gray-800">
                 {asset.assetName ?? "—"}
+              </td>
+              <td className="px-5 py-4 text-sm">
+                <ReviewStatusBadge status={asset.reviewStatus} />
               </td>
             </tr>
           ))}

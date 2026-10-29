@@ -2,6 +2,10 @@ export const PROJECT_STATUSES = ["scheduled", "in_progress", "completed"] as con
 
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+export const PROJECT_ASSET_REVIEW_STATUSES = ["todo", "in_progress", "done"] as const;
+
+export type ProjectAssetReviewStatus = (typeof PROJECT_ASSET_REVIEW_STATUSES)[number];
+
 export type ProjectUser = {
   id: string;
   email: string;
@@ -18,12 +22,14 @@ export type ProjectAsset = {
   tag: string;
   assetName: string | null;
   locationId: string;
+  reviewStatus: ProjectAssetReviewStatus;
 };
 
 export type ProjectSiteAsset = {
   id: string;
   tag: string;
   assetName: string | null;
+  reviewStatus: ProjectAssetReviewStatus;
 };
 
 export type ProjectLocationNode = {
@@ -347,6 +353,7 @@ function parseProjectSiteAssets(value: unknown): ProjectSiteAsset[] {
       id: requiredString(record, "id"),
       tag: requiredString(record, "tag"),
       assetName: optionalString(record, "assetName"),
+      reviewStatus: parseProjectAssetReviewStatus(record.reviewStatus),
     };
   });
 }
@@ -405,8 +412,55 @@ function parseProjectAssets(value: unknown): ProjectAsset[] {
       tag: requiredString(record, "tag"),
       assetName: optionalString(record, "assetName"),
       locationId: requiredString(record, "locationId"),
+      reviewStatus: parseProjectAssetReviewStatus(record.reviewStatus),
     };
   });
+}
+
+export function reviewStatusLabel(status: ProjectAssetReviewStatus): string {
+  switch (status) {
+    case "todo":
+      return "To do";
+    case "in_progress":
+      return "In progress";
+    case "done":
+      return "Done";
+  }
+}
+
+export function parseProjectAssetReviewStatus(value: unknown): ProjectAssetReviewStatus {
+  if (
+    typeof value === "string" &&
+    (PROJECT_ASSET_REVIEW_STATUSES as readonly string[]).includes(value)
+  ) {
+    return value as ProjectAssetReviewStatus;
+  }
+
+  return "todo";
+}
+
+export type ProjectAssetReviewPatch = {
+  id: string;
+  tag: string;
+  assetName: string | null;
+  locationId: string;
+  reviewStatus: ProjectAssetReviewStatus;
+};
+
+export function parseProjectAssetReviewBody(data: unknown): ProjectAssetReviewPatch {
+  if (!data || typeof data !== "object" || !("asset" in data)) {
+    throw new Error("The response was missing an asset.");
+  }
+
+  const record = objectRecord(data.asset, "asset");
+
+  return {
+    id: requiredString(record, "id"),
+    tag: requiredString(record, "tag"),
+    assetName: optionalString(record, "assetName"),
+    locationId: requiredString(record, "locationId"),
+    reviewStatus: parseProjectAssetReviewStatus(record.reviewStatus),
+  };
 }
 
 function parseProjectUser(value: unknown): ProjectUser {
