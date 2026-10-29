@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Forbidden } from "@/components/forbidden";
@@ -10,7 +9,6 @@ import {
   FieldMessages,
   FormBanner,
   bannerMessage,
-  secondaryButtonClassName,
 } from "@/components/form-controls";
 import {
   InlineSelect,
@@ -163,131 +161,114 @@ export function ProjectTypeDetail({ id }: { id: string }) {
           { label: projectType.name },
         ]}
       />
-      <div className="grid min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
-        <div className="flex min-w-0 flex-col gap-8">
-          <section>
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-gray-500">Project type</p>
-                <InlineTitle
-                  value={projectType.name}
-                  editable={canEdit}
-                  onSave={async (name) => {
-                    if (!name) {
-                      throw new ApiRequestError(400, "Invalid request", {
-                        name: ["Enter a name."],
-                      });
-                    }
 
-                    await saveProjectType({ name });
-                  }}
-                />
-                <div className="mt-3 max-w-md">
-                  <InlineText
-                    label="Code"
-                    field="code"
-                    value={projectType.code}
-                    editable={canEdit}
-                    maxLength={100}
-                    onSave={async (code) => {
-                      const trimmed = code.trim();
+      <section className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-gray-500">Project type</p>
+            <InlineTitle
+              value={projectType.name}
+              editable={canEdit}
+              onSave={async (name) => {
+                if (!name) {
+                  throw new ApiRequestError(400, "Invalid request", {
+                    name: ["Enter a name."],
+                  });
+                }
 
-                      if (!trimmed) {
-                        throw new ApiRequestError(400, "Invalid request", {
-                          code: ["Enter a code."],
-                        });
-                      }
-
-                      await saveProjectType({ code: trimmed });
-                    }}
-                  />
-                </div>
-              </div>
-              {canEdit ? (
-                <Link
-                  href={`/project-types/${projectType.id}/edit`}
-                  className={secondaryButtonClassName}
-                >
-                  Edit
-                </Link>
-              ) : null}
-            </div>
-          </section>
-
-          <ProjectTypeFields
-            projectType={projectType}
-            catalog={catalog}
-            catalogLoading={catalogRequest.loading && !catalogRequest.data}
-            catalogError={
-              catalogRequest.error ? asApiError(catalogRequest.error).message : null
-            }
-            canEdit={canEdit}
-            pending={fieldsPending}
-            onSaveFields={saveFields}
-          />
+                await saveProjectType({ name });
+              }}
+            />
+          </div>
+          {canDelete ? (
+            <ConfirmDelete
+              label="Delete project type"
+              question="Delete this project type?"
+              pending={deleting}
+              onConfirm={() => {
+                void remove();
+              }}
+            />
+          ) : null}
         </div>
 
-        <aside className="min-w-0 overflow-visible lg:sticky lg:top-24">
-          <div className="min-w-0 overflow-visible rounded-card border border-gray-200 bg-surface p-5 shadow-card">
-            <h2 className="text-sm font-semibold text-gray-800">Details</h2>
-            <dl className="mt-5 grid grid-cols-1 min-w-0 gap-5 overflow-visible [&>*]:min-w-0">
-              <InlineText
-                label="Description"
-                field="description"
-                value={projectType.description ?? ""}
-                editable={canEdit}
-                maxLength={5000}
-                onSave={async (description) => {
-                  await saveProjectType({ description: description || null });
-                }}
-              />
-              <InlineSortOrder
-                value={projectType.sortOrder}
-                editable={canEdit}
-                onSave={async (sortOrder) => {
-                  await saveProjectType({ sortOrder });
-                }}
-              />
-              {canEdit ? (
-                <InlineSelect
-                  label="Status"
-                  field="isActive"
-                  value={projectType.isActive ? "true" : "false"}
-                  editable={canEdit}
-                  options={[
-                    { value: "true", label: "Active" },
-                    { value: "false", label: "Inactive" },
-                  ]}
-                  onSave={async (value) => {
-                    await saveProjectType({ isActive: value === "true" });
-                  }}
-                />
-              ) : (
-                <Property label="Status">
-                  {projectType.isActive ? "Active" : "Inactive"}
-                </Property>
-              )}
-            </dl>
-            {canDelete ? (
-              <div className="mt-6 grid gap-3 border-t border-gray-200 pt-5">
-                {deleteError ? (
-                  <p className="text-sm leading-6 text-ink" role="alert">
-                    {deleteError}
-                  </p>
-                ) : null}
-                <ConfirmDelete
-                  label="Delete project type"
-                  question="Delete this project type?"
-                  pending={deleting}
-                  onConfirm={() => {
-                    void remove();
-                  }}
-                />
-              </div>
-            ) : null}
+        {deleteError ? (
+          <p className="mt-3 text-sm leading-6 text-ink" role="alert">
+            {deleteError}
+          </p>
+        ) : null}
+
+        <dl className="mt-6 grid min-w-0 grid-cols-1 gap-5 overflow-visible sm:grid-cols-3 [&>*]:min-w-0">
+          <InlineText
+            label="Code"
+            field="code"
+            value={projectType.code}
+            editable={canEdit}
+            maxLength={100}
+            onSave={async (code) => {
+              const trimmed = code.trim();
+
+              if (!trimmed) {
+                throw new ApiRequestError(400, "Invalid request", {
+                  code: ["Enter a code."],
+                });
+              }
+
+              await saveProjectType({ code: trimmed });
+            }}
+          />
+          <InlineSortOrder
+            value={projectType.sortOrder}
+            editable={canEdit}
+            onSave={async (sortOrder) => {
+              await saveProjectType({ sortOrder });
+            }}
+          />
+          {canEdit ? (
+            <InlineSelect
+              label="Status"
+              field="isActive"
+              value={projectType.isActive ? "true" : "false"}
+              editable={canEdit}
+              options={[
+                { value: "true", label: "Active" },
+                { value: "false", label: "Inactive" },
+              ]}
+              onSave={async (value) => {
+                await saveProjectType({ isActive: value === "true" });
+              }}
+            />
+          ) : (
+            <Property label="Status">
+              {projectType.isActive ? "Active" : "Inactive"}
+            </Property>
+          )}
+          <div className="sm:col-span-3">
+            <InlineText
+              label="Description"
+              field="description"
+              value={projectType.description ?? ""}
+              editable={canEdit}
+              maxLength={5000}
+              onSave={async (description) => {
+                await saveProjectType({ description: description || null });
+              }}
+            />
           </div>
-        </aside>
-      </div>
+        </dl>
+      </section>
+
+      <ProjectTypeFields
+        projectType={projectType}
+        catalog={catalog}
+        catalogLoading={catalogRequest.loading && !catalogRequest.data}
+        catalogError={
+          catalogRequest.error ? asApiError(catalogRequest.error).message : null
+        }
+        canEdit={canEdit}
+        pending={fieldsPending}
+        onSaveFields={saveFields}
+      />
     </div>
   );
 }
