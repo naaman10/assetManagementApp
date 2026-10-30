@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   isPlanImage,
   isPlanPdf,
@@ -10,7 +10,9 @@ import {
   type LocalPlanFeature,
 } from "@/lib/site-plans";
 
-type MediaSize = {
+type OverlayBox = {
+  left: number;
+  top: number;
   width: number;
   height: number;
 };
@@ -39,17 +41,24 @@ export function SitePlanCanvas({
   onUrlExpired: () => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const mediaRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRef = useRef<HTMLCanvasElement | HTMLImageElement | null>(null);
   const drawingRef = useRef(false);
   const retriedRef = useRef(false);
   const onUrlExpiredRef = useRef(onUrlExpired);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
   const [frameWidth, setFrameWidth] = useState(0);
-  const [mediaSize, setMediaSize] = useState<MediaSize | null>(null);
+  const [imageReady, setImageReady] = useState(false);
+  const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
+  const [overlayBox, setOverlayBox] = useState<OverlayBox | null>(null);
   const showImage = isPlanImage(contentType);
   const showPdf = isPlanPdf(contentType);
+  const imageIsReady = imageReady && loadedImageUrl === url;
+  const mediaReady = showPdf ? pdfReady : imageIsReady;
+
+  if (!mediaReady && overlayBox !== null) {
+    setOverlayBox(null);
+  }
 
   useEffect(() => {
     onUrlExpiredRef.current = onUrlExpired;
@@ -95,11 +104,16 @@ export function SitePlanCanvas({
     }
 
     let cancelled = false;
-    const canvas = canvasRef.current;
+    let renderTask: { cancel: () => void } | null = null;
+    const canvas = mediaRef.current;
 
-    if (!canvas) {
+    if (!(canvas instanceof HTMLCanvasElement)) {
       return;
     }
+
+    setPdfReady(false);
+    setPdfError(null);
+    setOverlayBox(null);
 
     async function renderPdf(target: HTMLCanvasElement) {
       try {
@@ -107,18 +121,21 @@ export function SitePlanCanvas({
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         const loadingTask = pdfjs.getDocument({ url });
         const pdf = await loadingTask.promise;
+
+        if (cancelled) {
+          return;
+        }
+
         const page = await pdf.getPage(1);
         const baseViewport = page.getViewport({ scale: 1 });
-        const cssScale = frameWidth / baseViewport.width;
+        const scale = frameWidth / baseViewport.width;
+        const viewport = page.getViewport({ scale });
         const outputScale = window.devicePixelRatio || 1;
-        const viewport = page.getViewport({ scale: cssScale * outputScale });
-        const cssWidth = Math.floor(baseViewport.width * cssScale);
-        const cssHeight = Math.floor(baseViewport.height * cssScale);
+        const cssWidth = Math.floor(viewport.width);
+        const cssHeight = Math.floor(viewport.height);
 
-        target.width = Math.floor(viewport.width);
-        target.height = Math.floor(viewport.height);
-        // Explicit CSS pixel size — do not use width:100%/auto (canvas
-        // attributes otherwise fight the overlay box).
+        target.width = Math.floor(cssWidth * outputScale);
+        target.height = Math.floor(cssHeight * outputScale);
         target.style.width = `${cssWidth}px`;
         target.style.height = `${cssHeight}px`;
 
@@ -128,30 +145,43 @@ export function SitePlanCanvas({
           throw new Error("Could not create a canvas context.");
         }
 
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        context.clearRect(0, 0, target.width, target.height);
+        const transform =
+          outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
 
-        await page.render({
+        const task = page.render({
           canvas: target,
           canvasContext: context,
           viewport,
-        }).promise;
+          ...(transform ? { transform } : {}),
+        });
+        renderTask = task;
+        await task.promise;
 
         if (!cancelled) {
-          setMediaSize({ width: cssWidth, height: cssHeight });
           setPdfReady(true);
           setPdfError(null);
         }
-      } catch {
-        if (!cancelled) {
-          setPdfReady(false);
-          setPdfError("The PDF could not be rendered.");
-          setMediaSize(null);
+      } catch (caught) {
+        if (cancelled) {
+          return;
+        }
 
-          if (!retriedRef.current) {
-            retriedRef.current = true;
-            onUrlExpiredRef.current();
-          }
+        const message =
+          caught && typeof caught === "object" && "name" in caught
+            ? String((caught as { name?: string }).name)
+            : "";
+
+        if (message === "RenderingCancelledException") {
+          return;
+        }
+
+        setPdfReady(false);
+        setPdfError("The PDF could not be rendered.");
+        setOverlayBox(null);
+
+        if (!retriedRef.current) {
+          retriedRef.current = true;
+          onUrlExpiredRef.current();
         }
       }
     }
@@ -160,8 +190,72 @@ export function SitePlanCanvas({
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
     };
   }, [showPdf, url, frameWidth]);
+
+  // Pin the SVG to the media element's real laid-out box (relative to frame).
+  useLayoutEffect(() => {
+    if (!mediaReady) {
+      return;
+    }
+
+    const frame = frameRef.current;
+    const media = mediaRef.current;
+
+    if (!frame || !media) {
+      return;
+    }
+
+    function syncOverlayBox() {
+      if (!frame || !media) {
+        return;
+      }
+
+      const frameRect = frame.getBoundingClientRect();
+      const mediaRect = media.getBoundingClientRect();
+
+      if (mediaRect.width <= 0 || mediaRect.height <= 0) {
+        return;
+      }
+
+      const next: OverlayBox = {
+        left: mediaRect.left - frameRect.left,
+        top: mediaRect.top - frameRect.top,
+        width: mediaRect.width,
+        height: mediaRect.height,
+      };
+
+      setOverlayBox((current) => {
+        if (
+          current &&
+          Math.abs(current.left - next.left) < 0.5 &&
+          Math.abs(current.top - next.top) < 0.5 &&
+          Math.abs(current.width - next.width) < 0.5 &&
+          Math.abs(current.height - next.height) < 0.5
+        ) {
+          return current;
+        }
+
+        return next;
+      });
+    }
+
+    syncOverlayBox();
+
+    const observer = new ResizeObserver(() => {
+      syncOverlayBox();
+    });
+
+    observer.observe(frame);
+    observer.observe(media);
+    window.addEventListener("scroll", syncOverlayBox, true);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", syncOverlayBox, true);
+    };
+  }, [mediaReady, frameWidth, url, showPdf, showImage]);
 
   function handleMediaError() {
     if (retriedRef.current) {
@@ -172,40 +266,13 @@ export function SitePlanCanvas({
     onUrlExpiredRef.current();
   }
 
-  function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
-    const image = event.currentTarget;
-    const width = Math.floor(image.clientWidth);
-    const height = Math.floor(image.clientHeight);
-
-    if (width > 0 && height > 0) {
-      setMediaSize({ width, height });
-    }
-  }
-
-  useEffect(() => {
-    if (!showImage || frameWidth <= 0) {
-      return;
-    }
-
-    const image = mediaRef.current?.querySelector("img");
-
-    if (!image || image.clientWidth <= 0 || image.clientHeight <= 0) {
-      return;
-    }
-
-    setMediaSize({
-      width: Math.floor(image.clientWidth),
-      height: Math.floor(image.clientHeight),
-    });
-  }, [showImage, frameWidth, url]);
-
   function pointerToDraft(
     event: React.PointerEvent<SVGSVGElement>,
     start: DraftRect | null,
   ): DraftRect | null {
-    const box = mediaRef.current?.getBoundingClientRect();
+    const box = event.currentTarget.getBoundingClientRect();
 
-    if (!box || box.width <= 0 || box.height <= 0) {
+    if (box.width <= 0 || box.height <= 0) {
       return null;
     }
 
@@ -218,169 +285,181 @@ export function SitePlanCanvas({
     return { ...start, x1: x, y1: y };
   }
 
-  const overlay = (
-    <svg
-      viewBox="0 0 1 1"
-      preserveAspectRatio="none"
-      className={`absolute inset-0 h-full w-full ${canDraw ? "cursor-crosshair" : ""} ${
-        canDraw || features.length > 0 ? "" : "pointer-events-none"
-      }`}
-      role="img"
-      aria-label="Room overlays"
-      onPointerDown={(event) => {
-        if (!canDraw || event.button !== 0) {
-          return;
-        }
+  const overlay =
+    overlayBox == null ? null : (
+      <svg
+        viewBox="0 0 1 1"
+        preserveAspectRatio="none"
+        className={`${canDraw ? "cursor-crosshair" : ""} ${
+          canDraw || features.length > 0 ? "" : "pointer-events-none"
+        }`}
+        style={{
+          position: "absolute",
+          left: overlayBox.left,
+          top: overlayBox.top,
+          width: overlayBox.width,
+          height: overlayBox.height,
+          zIndex: 10,
+        }}
+        role="img"
+        aria-label="Room overlays"
+        onPointerDown={(event) => {
+          if (!canDraw || event.button !== 0) {
+            return;
+          }
 
-        if ((event.target as Element).closest("[data-plan-feature]")) {
-          return;
-        }
+          if ((event.target as Element).closest("[data-plan-feature]")) {
+            return;
+          }
 
-        const next = pointerToDraft(event, null);
+          const next = pointerToDraft(event, null);
 
-        if (!next) {
-          return;
-        }
+          if (!next) {
+            return;
+          }
 
-        drawingRef.current = true;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        onDraftChange(next);
-      }}
-      onPointerMove={(event) => {
-        if (!drawingRef.current || !draftRect) {
-          return;
-        }
-
-        const next = pointerToDraft(event, draftRect);
-
-        if (next) {
+          drawingRef.current = true;
+          event.currentTarget.setPointerCapture(event.pointerId);
           onDraftChange(next);
-        }
-      }}
-      onPointerUp={(event) => {
-        if (!drawingRef.current || !draftRect) {
-          return;
-        }
+        }}
+        onPointerMove={(event) => {
+          if (!drawingRef.current || !draftRect) {
+            return;
+          }
 
-        drawingRef.current = false;
+          const next = pointerToDraft(event, draftRect);
 
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }
+          if (next) {
+            onDraftChange(next);
+          }
+        }}
+        onPointerUp={(event) => {
+          if (!drawingRef.current || !draftRect) {
+            return;
+          }
 
-        const next = pointerToDraft(event, draftRect) ?? draftRect;
-        onDraftComplete(next);
-      }}
-      onPointerCancel={() => {
-        drawingRef.current = false;
-        onDraftChange(null);
-      }}
-    >
-      {features.map((feature) => {
-        const ring = feature.geometry.coordinates[0] ?? [];
-        const points = ring.map(([x, y]) => `${x},${y}`).join(" ");
-        const selected = feature.key === selectedKey;
-        const label = planFeatureLabel(feature);
-        const centroid = polygonCentroid(ring);
+          drawingRef.current = false;
 
-        return (
-          <g key={feature.key} data-plan-feature="">
-            <polygon
-              points={points}
-              className={
-                selected
-                  ? "fill-brand-500/35 stroke-brand-600"
-                  : "fill-brand-500/15 stroke-brand-500/70 hover:fill-brand-500/25"
-              }
-              strokeWidth={selected ? 0.004 : 0.002}
-              vectorEffect="non-scaling-stroke"
-              role="button"
-              tabIndex={0}
-              aria-label={label}
-              aria-pressed={selected}
-              style={{ cursor: "pointer", pointerEvents: "auto" }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectFeature(feature);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelectFeature(feature);
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+
+          const next = pointerToDraft(event, draftRect) ?? draftRect;
+          onDraftComplete(next);
+        }}
+        onPointerCancel={() => {
+          drawingRef.current = false;
+          onDraftChange(null);
+        }}
+      >
+        {features.map((feature) => {
+          const ring = feature.geometry.coordinates[0] ?? [];
+          const points = ring.map(([x, y]) => `${x},${y}`).join(" ");
+          const selected = feature.key === selectedKey;
+          const label = planFeatureLabel(feature);
+          const centroid = polygonCentroid(ring);
+
+          return (
+            <g key={feature.key} data-plan-feature="">
+              <polygon
+                points={points}
+                className={
+                  selected
+                    ? "fill-brand-500/35 stroke-brand-600"
+                    : "fill-brand-500/15 stroke-brand-500/70 hover:fill-brand-500/25"
                 }
-              }}
-            />
-            {centroid ? (
-              <text
-                x={centroid.x}
-                y={centroid.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="pointer-events-none fill-gray-800"
-                style={{ fontSize: 0.028 }}
-              >
-                {label}
-              </text>
-            ) : null}
-          </g>
-        );
-      })}
-      {draftRect ? (
-        <rect
-          x={Math.min(draftRect.x0, draftRect.x1)}
-          y={Math.min(draftRect.y0, draftRect.y1)}
-          width={Math.abs(draftRect.x1 - draftRect.x0)}
-          height={Math.abs(draftRect.y1 - draftRect.y0)}
-          className="fill-brand-500/20 stroke-brand-600"
-          strokeWidth={0.003}
-          vectorEffect="non-scaling-stroke"
-          pointerEvents="none"
-        />
-      ) : null}
-    </svg>
-  );
+                strokeWidth={selected ? 0.004 : 0.002}
+                vectorEffect="non-scaling-stroke"
+                role="button"
+                tabIndex={0}
+                aria-label={label}
+                aria-pressed={selected}
+                style={{ cursor: "pointer", pointerEvents: "auto" }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectFeature(feature);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectFeature(feature);
+                  }
+                }}
+              />
+              {centroid ? (
+                <text
+                  x={centroid.x}
+                  y={centroid.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="pointer-events-none fill-gray-800"
+                  style={{ fontSize: 0.028 }}
+                >
+                  {label}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+        {draftRect ? (
+          <rect
+            x={Math.min(draftRect.x0, draftRect.x1)}
+            y={Math.min(draftRect.y0, draftRect.y1)}
+            width={Math.abs(draftRect.x1 - draftRect.x0)}
+            height={Math.abs(draftRect.y1 - draftRect.y0)}
+            className="fill-brand-500/20 stroke-brand-600"
+            strokeWidth={0.003}
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        ) : null}
+      </svg>
+    );
 
   return (
     <div className="relative min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <div ref={frameRef} className="w-full bg-gray-100">
+      <div ref={frameRef} className="relative w-full bg-gray-100">
         {showPdf ? (
-          <div
-            ref={mediaRef}
-            className="relative mx-auto"
-            style={
-              mediaSize
-                ? { width: mediaSize.width, height: mediaSize.height }
-                : { width: "100%", minHeight: 240 }
-            }
-          >
-            <canvas ref={canvasRef} className="block" />
+          <>
+            <canvas
+              ref={(node) => {
+                mediaRef.current = node;
+              }}
+              className="block"
+            />
+            {overlay}
             {!pdfReady && !pdfError ? (
-              <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
+              <p className="absolute inset-0 z-20 flex items-center justify-center text-sm text-gray-500">
                 Rendering PDF…
               </p>
             ) : null}
             {pdfError ? (
-              <p className="absolute inset-0 flex items-center justify-center p-4 text-sm text-error-600">
+              <p className="absolute inset-0 z-20 flex items-center justify-center p-4 text-sm text-error-600">
                 {pdfError}
               </p>
             ) : null}
-            {mediaSize ? overlay : null}
-          </div>
+          </>
         ) : null}
 
         {showImage ? (
-          <div ref={mediaRef} className="relative w-full">
+          <>
             {/* eslint-disable-next-line @next/next/no-img-element -- signed plan URL from API */}
             <img
+              ref={(node) => {
+                mediaRef.current = node;
+              }}
               src={url}
               alt="Site plan"
               className="block h-auto w-full"
               draggable={false}
-              onLoad={handleImageLoad}
+              onLoad={() => {
+                setLoadedImageUrl(url);
+                setImageReady(true);
+              }}
               onError={handleMediaError}
             />
-            {mediaSize ? overlay : null}
-          </div>
+            {overlay}
+          </>
         ) : null}
 
         {!showImage && !showPdf ? (
