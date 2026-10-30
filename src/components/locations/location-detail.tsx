@@ -23,6 +23,7 @@ import {
   InlineTitle,
   Property,
 } from "@/components/inline-field";
+import { LocationSitePlanSection } from "@/components/locations/location-site-plan-section";
 import { LocationPicker } from "@/components/locations/location-picker";
 import { Modal } from "@/components/modal";
 import { useSession } from "@/components/session-provider";
@@ -355,6 +356,14 @@ export function LocationDetail({ id }: { id: string }) {
               router.replace("/sites");
             }}
           />
+
+          {location.locationType === "floor" ? (
+            <LocationSitePlanSection
+              floorId={location.id}
+              childLocations={children}
+              canEdit={canEdit}
+            />
+          ) : null}
 
           <LocationAssetsSection
             siteId={location.siteId}
