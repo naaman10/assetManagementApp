@@ -92,8 +92,19 @@ export function useApi<T>(path: string | null, parse: (data: unknown) => T) {
 
     apiRequest(path)
       .then((body) => {
-        if (!cancelled) {
+        if (cancelled) {
+          return;
+        }
+
+        try {
           setState({ path, data: parse(body), error: null, loading: false });
+        } catch (caught: unknown) {
+          setState({
+            path,
+            data: null,
+            error: asApiError(caught),
+            loading: false,
+          });
         }
       })
       .catch((caught: unknown) => {

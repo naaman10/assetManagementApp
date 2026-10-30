@@ -56,6 +56,7 @@ export function SitePlanDetail({ id }: { id: string }) {
   const canView = hasPermission(user, CLIENTS_VIEW);
   const canEdit = hasPermission(user, CLIENTS_EDIT);
   const [revision, setRevision] = useState(0);
+  const [urlRetryUsed, setUrlRetryUsed] = useState(false);
   const planPath = canView ? `/api/site-plans/${id}?r=${revision}` : null;
   const planRequest = useApi(planPath, parseSitePlanBody);
   const missing = planRequest.error?.status === 404;
@@ -174,6 +175,13 @@ export function SitePlanDetail({ id }: { id: string }) {
   const loaded = plan;
 
   function refreshPlan() {
+    // Only retry a signed URL once. Remounting the canvas resets its local
+    // retry flag, which previously caused an infinite loading loop.
+    if (urlRetryUsed) {
+      return;
+    }
+
+    setUrlRetryUsed(true);
     setHeldPlan(null);
     setRevision((value) => value + 1);
   }
@@ -510,7 +518,7 @@ export function SitePlanDetail({ id }: { id: string }) {
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <SitePlanCanvas
-          key={`${loaded.id}-${loaded.updatedAt}-${revision}`}
+          key={`${loaded.id}-${revision}`}
           url={loaded.url}
           contentType={loaded.contentType}
           features={features}
