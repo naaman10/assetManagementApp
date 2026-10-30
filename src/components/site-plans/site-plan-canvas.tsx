@@ -40,6 +40,7 @@ export function SitePlanCanvas({
   const onUrlExpiredRef = useRef(onUrlExpired);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
   const showImage = isPlanImage(contentType);
   const showPdf = isPlanPdf(contentType);
 
@@ -48,7 +49,41 @@ export function SitePlanCanvas({
   }, [onUrlExpired]);
 
   useEffect(() => {
-    if (!showPdf) {
+    const box = boxRef.current;
+
+    if (!box) {
+      return;
+    }
+
+    function syncWidth(width: number) {
+      const next = Math.floor(width);
+
+      if (next > 0) {
+        setContainerWidth((current) => (current === next ? current : next));
+      }
+    }
+
+    syncWidth(box.clientWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+
+      if (!entry) {
+        return;
+      }
+
+      syncWidth(entry.contentRect.width);
+    });
+
+    observer.observe(box);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [showPdf, showImage, url]);
+
+  useEffect(() => {
+    if (!showPdf || containerWidth <= 0) {
       return;
     }
 
@@ -67,15 +102,17 @@ export function SitePlanCanvas({
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         const baseViewport = page.getViewport({ scale: 1 });
-        const containerWidth = boxRef.current?.clientWidth || baseViewport.width;
         const scale = containerWidth / baseViewport.width;
         const viewport = page.getViewport({ scale });
         const outputScale = window.devicePixelRatio || 1;
 
+        // Backing store matches CSS box; keep CSS width 100% so overlay and
+        // canvas always share the same measured box as the container resizes.
         target.width = Math.floor(viewport.width * outputScale);
         target.height = Math.floor(viewport.height * outputScale);
-        target.style.width = `${viewport.width}px`;
-        target.style.height = `${viewport.height}px`;
+        target.style.width = "100%";
+        target.style.height = "auto";
+        target.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
 
         const context = target.getContext("2d");
 
@@ -115,7 +152,7 @@ export function SitePlanCanvas({
     return () => {
       cancelled = true;
     };
-  }, [showPdf, url]);
+  }, [showPdf, url, containerWidth]);
 
   function handleMediaError() {
     if (retriedRef.current) {
@@ -271,7 +308,7 @@ export function SitePlanCanvas({
     <div className="relative min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
       {showPdf ? (
         <div ref={boxRef} className="relative w-full bg-gray-100">
-          <canvas ref={canvasRef} className="block h-auto w-full" />
+          <canvas ref={canvasRef} className="block w-full" />
           {!pdfReady && !pdfError ? (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
               Rendering PDF…
