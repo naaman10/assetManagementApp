@@ -116,6 +116,15 @@ export function AppHeader() {
               Sites
             </NavLink>
           ) : null}
+          {showClients ? (
+            <NavLink
+              href="/site-plans"
+              active={pathname.startsWith("/site-plans")}
+              icon={<SitePlansIcon />}
+            >
+              Site Plans
+            </NavLink>
+          ) : null}
           <NavLink
             href="/projects"
             active={pathname === "/projects" || pathname.startsWith("/projects/")}
@@ -551,6 +560,29 @@ function SitesIcon() {
         strokeLinejoin="round"
       />
       <circle cx="10" cy="9" r="1.6" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function SitePlansIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-5" fill="none" aria-hidden="true">
+      <rect
+        x="3.5"
+        y="3.5"
+        width="13"
+        height="13"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M6.5 8.5h3.5V12M11 7.5h2.5v5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
