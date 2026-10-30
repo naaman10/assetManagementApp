@@ -57,16 +57,17 @@ export type LocalPlanFeature = {
   sortOrder: number;
 };
 
-export type DraftRect = {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
+export type DraftPolygon = {
+  points: PlanPoint[];
 };
 
 export type PlanPoint = readonly [number, number];
 
-export const MIN_PLAN_RECT_DIAGONAL = 0.01;
+/** Minimum bbox diagonal (normalized plan space) for a valid room polygon. */
+export const MIN_PLAN_POLYGON_DIAGONAL = 0.01;
+
+/** Hit radius for clicking the first vertex to close a draft polygon. */
+export const PLAN_CLOSE_VERTEX_THRESHOLD = 0.015;
 
 const MAX_PLAN_BYTES = 25 * 1024 * 1024;
 
@@ -146,33 +147,49 @@ export function toPlanPoint(
   ] as const;
 }
 
-export function rectToPolygon(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-): PlanGeometry {
-  const left = Math.min(x0, x1);
-  const right = Math.max(x0, x1);
-  const top = Math.min(y0, y1);
-  const bottom = Math.max(y0, y1);
+export function isNearPlanPoint(
+  a: PlanPoint,
+  b: PlanPoint,
+  threshold: number = PLAN_CLOSE_VERTEX_THRESHOLD,
+): boolean {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]) <= threshold;
+}
+
+export function draftPolygonBBoxDiagonal(points: readonly PlanPoint[]): number {
+  if (points.length === 0) {
+    return 0;
+  }
+
+  let minX = points[0]![0];
+  let maxX = points[0]![0];
+  let minY = points[0]![1];
+  let maxY = points[0]![1];
+
+  for (const [x, y] of points) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+
+  return Math.hypot(maxX - minX, maxY - minY);
+}
+
+export function pointsToPolygon(
+  points: readonly PlanPoint[],
+): PlanGeometry | null {
+  if (points.length < 3) {
+    return null;
+  }
+
+  const first = points[0]!;
+  const ring: number[][] = points.map(([x, y]) => [x, y]);
+  ring.push([first[0], first[1]]);
 
   return {
     type: "Polygon",
-    coordinates: [
-      [
-        [left, top],
-        [right, top],
-        [right, bottom],
-        [left, bottom],
-        [left, top],
-      ],
-    ],
+    coordinates: [ring],
   };
-}
-
-export function draftRectDiagonal(rect: DraftRect): number {
-  return Math.hypot(rect.x1 - rect.x0, rect.y1 - rect.y0);
 }
 
 export function featuresFromPlan(plan: SitePlan): LocalPlanFeature[] {

@@ -112,7 +112,7 @@ export function LocationSitePlanSection({
         ) : null}
 
         {plan ? (
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)]">
             <SitePlanCanvas
               key={`${plan.id}-${plan.updatedAt}-${revision}`}
               url={plan.url}
@@ -120,7 +120,7 @@ export function LocationSitePlanSection({
               features={features}
               canDraw={false}
               selectedKey={selectedKey}
-              draftRect={null}
+              draftPolygon={null}
               onDraftChange={() => {}}
               onDraftComplete={() => {}}
               onSelectFeature={selectFeature}

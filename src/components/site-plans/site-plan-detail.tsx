@@ -29,16 +29,16 @@ import {
 } from "@/lib/locations";
 import { parseAssetList, type AssetList } from "@/lib/sites";
 import {
-  MIN_PLAN_RECT_DIAGONAL,
-  draftRectDiagonal,
+  MIN_PLAN_POLYGON_DIAGONAL,
+  draftPolygonBBoxDiagonal,
   featuresFromPlan,
   featuresPutBody,
   locationDisplayName,
   parseSitePlanBody,
   planFeatureLabel,
   planFileProblem,
-  rectToPolygon,
-  type DraftRect,
+  pointsToPolygon,
+  type DraftPolygon,
   type LocalPlanFeature,
   type SitePlan,
 } from "@/lib/site-plans";
@@ -82,7 +82,7 @@ export function SitePlanDetail({ id }: { id: string }) {
   const [syncedPlanKey, setSyncedPlanKey] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [draftRect, setDraftRect] = useState<DraftRect | null>(null);
+  const [draftPolygon, setDraftPolygon] = useState<DraftPolygon | null>(null);
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [redrawKey, setRedrawKey] = useState<string | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export function SitePlanDetail({ id }: { id: string }) {
     if (plan && !dirty) {
       setFeatures(featuresFromPlan(plan));
       setSelectedKey(null);
-      setDraftRect(null);
+      setDraftPolygon(null);
       setAssignTarget(null);
       setRedrawKey(null);
     }
@@ -131,7 +131,7 @@ export function SitePlanDetail({ id }: { id: string }) {
       setDirty(false);
       setMode("view");
       setSelectedKey(null);
-      setDraftRect(null);
+      setDraftPolygon(null);
       setAssignTarget(null);
       setRedrawKey(null);
     }
@@ -190,7 +190,7 @@ export function SitePlanDetail({ id }: { id: string }) {
     setHeldPlan(next);
     setFeatures(featuresFromPlan(next));
     setDirty(false);
-    setDraftRect(null);
+    setDraftPolygon(null);
     setAssignTarget(null);
     setRedrawKey(null);
   }
@@ -219,7 +219,7 @@ export function SitePlanDetail({ id }: { id: string }) {
     }
 
     setMode("view");
-    setDraftRect(null);
+    setDraftPolygon(null);
     setAssignTarget(null);
     setRedrawKey(null);
     setActionError(null);
@@ -235,7 +235,7 @@ export function SitePlanDetail({ id }: { id: string }) {
     }
 
     setDirty(false);
-    setDraftRect(null);
+    setDraftPolygon(null);
     setAssignTarget(null);
     setRedrawKey(null);
     setSelectedKey(null);
@@ -322,14 +322,21 @@ export function SitePlanDetail({ id }: { id: string }) {
     setRoomsOverride(list.locations);
   }
 
-  function finishDraft(rect: DraftRect) {
-    if (draftRectDiagonal(rect) < MIN_PLAN_RECT_DIAGONAL) {
-      setDraftRect(null);
+  function finishDraft(draft: DraftPolygon) {
+    if (
+      draft.points.length < 3 ||
+      draftPolygonBBoxDiagonal(draft.points) < MIN_PLAN_POLYGON_DIAGONAL
+    ) {
+      setDraftPolygon(null);
       return;
     }
 
-    const geometry = rectToPolygon(rect.x0, rect.y0, rect.x1, rect.y1);
-    setDraftRect(null);
+    const geometry = pointsToPolygon(draft.points);
+    setDraftPolygon(null);
+
+    if (!geometry) {
+      return;
+    }
 
     if (redrawKey) {
       setFeatures((current) =>
@@ -516,7 +523,7 @@ export function SitePlanDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
         <SitePlanCanvas
           key={`${loaded.id}-${revision}`}
           url={loaded.url}
@@ -524,8 +531,8 @@ export function SitePlanDetail({ id }: { id: string }) {
           features={features}
           canDraw={mode === "edit"}
           selectedKey={selectedKey}
-          draftRect={draftRect}
-          onDraftChange={setDraftRect}
+          draftPolygon={draftPolygon}
+          onDraftChange={setDraftPolygon}
           onDraftComplete={finishDraft}
           onSelectFeature={(feature) => {
             if (mode === "edit") {
@@ -569,8 +576,8 @@ export function SitePlanDetail({ id }: { id: string }) {
             <>
               <p className="text-sm text-gray-500">
                 {redrawKey
-                  ? "Drag a new rectangle to replace the selected room shape."
-                  : "Drag a rectangle on the plan, then assign it to a room."}
+                  ? "Click corners to draw a new shape for the selected room. Double-click, press Enter, or click the first point to close. Escape cancels."
+                  : "Click corners on the plan to draw a room. Double-click, press Enter, or click the first point to close, then assign it to a room. Escape cancels."}
               </p>
               {selectedFeature ? (
                 <SelectedFeatureActions
@@ -583,7 +590,7 @@ export function SitePlanDetail({ id }: { id: string }) {
                   }}
                   onRedraw={() => {
                     setRedrawKey(selectedFeature.key);
-                    setDraftRect(null);
+                    setDraftPolygon(null);
                   }}
                   onRemove={removeSelectedFeature}
                 />
