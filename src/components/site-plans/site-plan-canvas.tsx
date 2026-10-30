@@ -10,6 +10,11 @@ import {
   type LocalPlanFeature,
 } from "@/lib/site-plans";
 
+type MediaSize = {
+  width: number;
+  height: number;
+};
+
 export function SitePlanCanvas({
   url,
   contentType,
@@ -33,14 +38,16 @@ export function SitePlanCanvas({
   onSelectFeature: (feature: LocalPlanFeature) => void;
   onUrlExpired: () => void;
 }) {
-  const boxRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const retriedRef = useRef(false);
   const onUrlExpiredRef = useRef(onUrlExpired);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [frameWidth, setFrameWidth] = useState(0);
+  const [mediaSize, setMediaSize] = useState<MediaSize | null>(null);
   const showImage = isPlanImage(contentType);
   const showPdf = isPlanPdf(contentType);
 
@@ -49,9 +56,9 @@ export function SitePlanCanvas({
   }, [onUrlExpired]);
 
   useEffect(() => {
-    const box = boxRef.current;
+    const frame = frameRef.current;
 
-    if (!box) {
+    if (!frame) {
       return;
     }
 
@@ -59,11 +66,11 @@ export function SitePlanCanvas({
       const next = Math.floor(width);
 
       if (next > 0) {
-        setContainerWidth((current) => (current === next ? current : next));
+        setFrameWidth((current) => (current === next ? current : next));
       }
     }
 
-    syncWidth(box.clientWidth);
+    syncWidth(frame.clientWidth);
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -75,7 +82,7 @@ export function SitePlanCanvas({
       syncWidth(entry.contentRect.width);
     });
 
-    observer.observe(box);
+    observer.observe(frame);
 
     return () => {
       observer.disconnect();
@@ -83,7 +90,7 @@ export function SitePlanCanvas({
   }, [showPdf, showImage, url]);
 
   useEffect(() => {
-    if (!showPdf || containerWidth <= 0) {
+    if (!showPdf || frameWidth <= 0) {
       return;
     }
 
@@ -102,17 +109,18 @@ export function SitePlanCanvas({
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         const baseViewport = page.getViewport({ scale: 1 });
-        const scale = containerWidth / baseViewport.width;
-        const viewport = page.getViewport({ scale });
+        const cssScale = frameWidth / baseViewport.width;
         const outputScale = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({ scale: cssScale * outputScale });
+        const cssWidth = Math.floor(baseViewport.width * cssScale);
+        const cssHeight = Math.floor(baseViewport.height * cssScale);
 
-        // Backing store matches CSS box; keep CSS width 100% so overlay and
-        // canvas always share the same measured box as the container resizes.
-        target.width = Math.floor(viewport.width * outputScale);
-        target.height = Math.floor(viewport.height * outputScale);
-        target.style.width = "100%";
-        target.style.height = "auto";
-        target.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
+        target.width = Math.floor(viewport.width);
+        target.height = Math.floor(viewport.height);
+        // Explicit CSS pixel size — do not use width:100%/auto (canvas
+        // attributes otherwise fight the overlay box).
+        target.style.width = `${cssWidth}px`;
+        target.style.height = `${cssHeight}px`;
 
         const context = target.getContext("2d");
 
@@ -120,17 +128,17 @@ export function SitePlanCanvas({
           throw new Error("Could not create a canvas context.");
         }
 
-        const transform =
-          outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0];
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.clearRect(0, 0, target.width, target.height);
 
         await page.render({
           canvas: target,
           canvasContext: context,
           viewport,
-          transform,
         }).promise;
 
         if (!cancelled) {
+          setMediaSize({ width: cssWidth, height: cssHeight });
           setPdfReady(true);
           setPdfError(null);
         }
@@ -138,6 +146,7 @@ export function SitePlanCanvas({
         if (!cancelled) {
           setPdfReady(false);
           setPdfError("The PDF could not be rendered.");
+          setMediaSize(null);
 
           if (!retriedRef.current) {
             retriedRef.current = true;
@@ -152,7 +161,7 @@ export function SitePlanCanvas({
     return () => {
       cancelled = true;
     };
-  }, [showPdf, url, containerWidth]);
+  }, [showPdf, url, frameWidth]);
 
   function handleMediaError() {
     if (retriedRef.current) {
@@ -163,11 +172,38 @@ export function SitePlanCanvas({
     onUrlExpiredRef.current();
   }
 
+  function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
+    const image = event.currentTarget;
+    const width = Math.floor(image.clientWidth);
+    const height = Math.floor(image.clientHeight);
+
+    if (width > 0 && height > 0) {
+      setMediaSize({ width, height });
+    }
+  }
+
+  useEffect(() => {
+    if (!showImage || frameWidth <= 0) {
+      return;
+    }
+
+    const image = mediaRef.current?.querySelector("img");
+
+    if (!image || image.clientWidth <= 0 || image.clientHeight <= 0) {
+      return;
+    }
+
+    setMediaSize({
+      width: Math.floor(image.clientWidth),
+      height: Math.floor(image.clientHeight),
+    });
+  }, [showImage, frameWidth, url]);
+
   function pointerToDraft(
     event: React.PointerEvent<SVGSVGElement>,
     start: DraftRect | null,
   ): DraftRect | null {
-    const box = boxRef.current?.getBoundingClientRect();
+    const box = mediaRef.current?.getBoundingClientRect();
 
     if (!box || box.width <= 0 || box.height <= 0) {
       return null;
@@ -306,42 +342,53 @@ export function SitePlanCanvas({
 
   return (
     <div className="relative min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
-      {showPdf ? (
-        <div ref={boxRef} className="relative w-full bg-gray-100">
-          <canvas ref={canvasRef} className="block w-full" />
-          {!pdfReady && !pdfError ? (
-            <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
-              Rendering PDF…
-            </p>
-          ) : null}
-          {pdfError ? (
-            <p className="absolute inset-0 flex items-center justify-center p-4 text-sm text-error-600">
-              {pdfError}
-            </p>
-          ) : null}
-          {overlay}
-        </div>
-      ) : null}
+      <div ref={frameRef} className="w-full bg-gray-100">
+        {showPdf ? (
+          <div
+            ref={mediaRef}
+            className="relative mx-auto"
+            style={
+              mediaSize
+                ? { width: mediaSize.width, height: mediaSize.height }
+                : { width: "100%", minHeight: 240 }
+            }
+          >
+            <canvas ref={canvasRef} className="block" />
+            {!pdfReady && !pdfError ? (
+              <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-500">
+                Rendering PDF…
+              </p>
+            ) : null}
+            {pdfError ? (
+              <p className="absolute inset-0 flex items-center justify-center p-4 text-sm text-error-600">
+                {pdfError}
+              </p>
+            ) : null}
+            {mediaSize ? overlay : null}
+          </div>
+        ) : null}
 
-      {showImage ? (
-        <div ref={boxRef} className="relative w-full bg-gray-100">
-          {/* eslint-disable-next-line @next/next/no-img-element -- signed plan URL from API */}
-          <img
-            src={url}
-            alt="Site plan"
-            className="block h-auto w-full"
-            draggable={false}
-            onError={handleMediaError}
-          />
-          {overlay}
-        </div>
-      ) : null}
+        {showImage ? (
+          <div ref={mediaRef} className="relative w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element -- signed plan URL from API */}
+            <img
+              src={url}
+              alt="Site plan"
+              className="block h-auto w-full"
+              draggable={false}
+              onLoad={handleImageLoad}
+              onError={handleMediaError}
+            />
+            {mediaSize ? overlay : null}
+          </div>
+        ) : null}
 
-      {!showImage && !showPdf ? (
-        <p className="p-4 text-sm text-gray-500">
-          Unsupported plan type ({contentType}).
-        </p>
-      ) : null}
+        {!showImage && !showPdf ? (
+          <p className="p-4 text-sm text-gray-500">
+            Unsupported plan type ({contentType}).
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
